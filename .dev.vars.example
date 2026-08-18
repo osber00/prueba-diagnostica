@@ -1,0 +1,13 @@
+# Copia este archivo como `.dev.vars` para el desarrollo local.
+# `.dev.vars` está en .gitignore y NUNCA debe subirse al repositorio.
+#
+# En producción estos valores se cargan con:
+#   npx wrangler secret put ADMIN_MASTER_CODE
+#   npx wrangler secret put SESSION_SECRET
+
+# Código de acceso al panel gestor.
+ADMIN_MASTER_CODE="GESTOR-LOCAL-2026"
+
+# Clave para firmar las sesiones. En producción usa 32+ bytes aleatorios:
+#   node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"
+SESSION_SECRET="clave-de-desarrollo-no-usar-en-produccion"

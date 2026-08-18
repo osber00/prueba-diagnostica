@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.wrangler/
+.env
+.dev.vars
+*.local
+dev-server.log
+
+# Artefactos de TypeScript
+*.tsbuildinfo
+worker-configuration.d.ts
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Exportaciones de resultados (contienen datos de estudiantes)
+exports/
+*.csv

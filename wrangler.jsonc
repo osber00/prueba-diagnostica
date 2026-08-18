@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // Define la URL final: https://<name>.<tu-subdominio>.workers.dev
+  "name": "prueba-inferencial-macajan",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // El plugin de Vite apunta automáticamente al build del cliente.
+  // "single-page-application" hace que cualquier ruta desconocida sirva index.html.
+  "assets": {
+    "not_found_handling": "single-page-application"
+  },
+
+  // Base de datos. Reemplaza "database_id" con el valor que devuelve:
+  //   npx wrangler d1 create prueba-inferencial
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "prueba-inferencial",
+      "database_id": "REEMPLAZAR_TRAS_EJECUTAR_wrangler_d1_create",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+
+  // Secrets (NO van aquí, se cargan con `wrangler secret put`):
+  //   ADMIN_MASTER_CODE  — código de acceso al panel gestor
+  //   SESSION_SECRET     — cadena aleatoria de 32+ bytes para firmar sesiones
+  // En local se leen desde .dev.vars
+}

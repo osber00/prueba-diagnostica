@@ -1,0 +1,166 @@
+@import "tailwindcss";
+@import "@fontsource-variable/nunito";
+
+/* ---------------------------------------------------------------------------
+   Design tokens — identidad "Macaján"
+   Paleta propia inspirada en el contexto rural: tierra (terracota), río
+   (turquesa), cosecha (dorado) y ciruela (morado de la fruta silvestre).
+   Deliberadamente distinta de la paleta de Duolingo (verde lima + azul cielo):
+   aquí predominan tonos cálidos y terrosos en vez de fríos y saturados.
+--------------------------------------------------------------------------- */
+@theme {
+  --font-sans:
+    "Nunito Variable", ui-rounded, "Segoe UI", system-ui, -apple-system,
+    sans-serif;
+
+  /* Terracota — acción primaria. Evoca el camino de tierra y los muros de adobe. */
+  --color-terracota-50: #fdf1ea;
+  --color-terracota-100: #fbdcc7;
+  --color-terracota-400: #e28a52;
+  --color-terracota-500: #d9713c;
+  --color-terracota-600: #b3592c;
+  --color-terracota-700: #8c4520;
+
+  /* Río — selección e información. El arroyo y las lluvias del texto 2 y 4. */
+  --color-rio-50: #e9f6f6;
+  --color-rio-100: #c3e9e7;
+  --color-rio-400: #3fada6;
+  --color-rio-500: #1f8f87;
+  --color-rio-600: #17716a;
+  --color-rio-700: #10534e;
+
+  /* Cosecha — acento y logros. El dorado del sol y de los cultivos. */
+  --color-cosecha-50: #fdf5e0;
+  --color-cosecha-100: #fae6ae;
+  --color-cosecha-400: #ecb43e;
+  --color-cosecha-500: #dd9c10;
+  --color-cosecha-600: #b17c0c;
+  --color-cosecha-700: #855d09;
+
+  /* Ciruela — categoría secundaria en gráficos (dimensión predictiva). */
+  --color-ciruela-50: #f4eef7;
+  --color-ciruela-100: #e0cbea;
+  --color-ciruela-400: #9c67ac;
+  --color-ciruela-500: #7d4e93;
+  --color-ciruela-600: #613b73;
+  --color-ciruela-700: #462a54;
+
+  /* Alerta — error, sin ser un rojo puro de semáforo. */
+  --color-alerta-50: #fbebe9;
+  --color-alerta-100: #f4c9c4;
+  --color-alerta-400: #d97467;
+  --color-alerta-500: #c2564a;
+  --color-alerta-600: #9c4038;
+  --color-alerta-700: #762e29;
+
+  /* Follaje — verde natural para vegetación en ilustraciones.
+     Es un verde bosque, no el verde lima saturado de Duolingo. */
+  --color-follaje-300: #9bc297;
+  --color-follaje-500: #4f8c4a;
+  --color-follaje-600: #3a6b38;
+  --color-follaje-700: #2a4e29;
+
+  /* Neutros con una leve calidez, a tono con la paleta terrosa. */
+  --color-ink-900: #3a332e;
+  --color-ink-700: #574f47;
+  --color-ink-500: #857a70;
+  --color-ink-300: #c8beb2;
+  --color-ink-200: #e3dcd2;
+  --color-ink-100: #f0ebe4;
+  --color-ink-50: #f9f6f2;
+
+  --radius-card: 1rem;
+  --radius-pill: 999px;
+
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    /* Blanco cálido en vez de blanco puro: papel, no pantalla fría. */
+    @apply bg-ink-50 font-sans text-ink-700 antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-rio-500;
+  }
+
+  button {
+    touch-action: manipulation;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Utilidades
+--------------------------------------------------------------------------- */
+@utility safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@utility text-balance-pretty {
+  text-wrap: pretty;
+}
+
+/* ---------------------------------------------------------------------------
+   Animaciones — desactivadas si el sistema pide menos movimiento
+--------------------------------------------------------------------------- */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@utility animate-pop-in {
+  animation: pop-in 0.24s var(--ease-bounce) both;
+}
+
+@utility animate-slide-up {
+  animation: slide-up 0.26s ease-out both;
+}
+
+@utility animate-float-soft {
+  animation: float-soft 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
