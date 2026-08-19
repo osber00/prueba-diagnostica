@@ -96,7 +96,7 @@ export function CodesPage() {
 
   return (
     <>
-      <div className="space-y-8 print:hidden">
+      <div className="space-y-6 print:hidden">
         <GenerateForm
           onGenerated={(batchId) => {
             setLastBatchId(batchId);
@@ -112,7 +112,7 @@ export function CodesPage() {
           />
         )}
 
-        <section className="space-y-3 rounded-card border-2 border-ink-200 bg-white p-5">
+        <section className="space-y-4 rounded-card border border-ink-200/80 bg-white p-5 shadow-[0_14px_38px_-30px_rgba(36,62,72,0.75)] sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-extrabold text-ink-900">Lotes generados</h2>
             <PhaseFilter
@@ -144,7 +144,8 @@ export function CodesPage() {
                     onClick={() => setPrintBatch(batch)}
                     className="rounded-lg border-2 border-ink-200 px-3 py-1 text-xs font-bold text-ink-700 hover:bg-ink-100"
                   >
-                    🖨️ Imprimir
+                    <PrintIcon />
+                    Imprimir
                   </button>
                 </li>
               ))}
@@ -152,7 +153,7 @@ export function CodesPage() {
           )}
         </section>
 
-        <section className="space-y-3 rounded-card border-2 border-ink-200 bg-white p-5">
+        <section className="space-y-4 rounded-card border border-ink-200/80 bg-white p-5 shadow-[0_14px_38px_-30px_rgba(36,62,72,0.75)] sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-extrabold text-ink-900">Todos los códigos</h2>
             <PhaseFilter
@@ -233,8 +234,16 @@ function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void 
   }
 
   return (
-    <section className="space-y-4 rounded-card border-2 border-ink-200 bg-white p-5">
-      <h2 className="text-base font-extrabold text-ink-900">Generar códigos</h2>
+    <section className="space-y-5 rounded-card border border-ink-200/80 bg-white p-5 shadow-[0_14px_38px_-30px_rgba(36,62,72,0.75)] sm:p-6">
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-cielo-100 text-cielo-700" aria-hidden="true">
+          <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        </span>
+        <div>
+          <h1 className="text-lg font-extrabold tracking-tight text-ink-900">Generar códigos</h1>
+          <p className="text-sm text-ink-500">Crea accesos individuales para una nueva aplicación de la prueba.</p>
+        </div>
+      </div>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
@@ -245,7 +254,7 @@ function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void 
             id="code-phase"
             value={phase}
             onChange={(e) => setPhase(e.target.value as Phase)}
-            className="w-full rounded-xl border-2 border-ink-200 px-3 py-2 text-sm font-semibold text-ink-900 focus:border-rio-500 focus:outline-none"
+            className="w-full rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2.5 text-sm font-semibold text-ink-900 focus:border-rio-500 focus:bg-white focus:outline-none focus:ring-3 focus:ring-rio-100"
           >
             <option value="pretest">Pretest</option>
             <option value="postest">Postest</option>
@@ -264,7 +273,7 @@ function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void 
             value={usingNames ? effectiveQuantity : quantity}
             disabled={usingNames}
             onChange={(e) => setQuantity(e.target.value)}
-            className="w-full rounded-xl border-2 border-ink-200 px-3 py-2 text-sm font-semibold text-ink-900 focus:border-rio-500 focus:outline-none disabled:bg-ink-100 disabled:text-ink-500"
+            className="w-full rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2.5 text-sm font-semibold text-ink-900 focus:border-rio-500 focus:bg-white focus:outline-none focus:ring-3 focus:ring-rio-100 disabled:bg-ink-100 disabled:text-ink-500"
           />
         </div>
 
@@ -278,7 +287,7 @@ function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void 
             onChange={(e) => setNamesText(e.target.value)}
             rows={4}
             placeholder={"Ana Gómez\nLuis Pérez\nMaría Díaz…"}
-            className="w-full rounded-xl border-2 border-ink-200 px-3 py-2 text-sm text-ink-900 focus:border-rio-500 focus:outline-none"
+            className="w-full rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2.5 text-sm text-ink-900 focus:border-rio-500 focus:bg-white focus:outline-none focus:ring-3 focus:ring-rio-100"
           />
           <p className="text-xs text-ink-700">
             Si dejas esto vacío, se generan códigos anónimos que puedes asignar en papel.
@@ -297,7 +306,7 @@ function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void 
             value={validForDays}
             onChange={(e) => setValidForDays(e.target.value)}
             placeholder="Sin vencimiento"
-            className="w-full rounded-xl border-2 border-ink-200 px-3 py-2 text-sm text-ink-900 focus:border-rio-500 focus:outline-none"
+            className="w-full rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2.5 text-sm text-ink-900 focus:border-rio-500 focus:bg-white focus:outline-none focus:ring-3 focus:ring-rio-100"
           />
         </div>
 
@@ -311,7 +320,7 @@ function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void 
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Ej. Aplicación piloto noveno 1"
-            className="w-full rounded-xl border-2 border-ink-200 px-3 py-2 text-sm text-ink-900 focus:border-rio-500 focus:outline-none"
+            className="w-full rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2.5 text-sm text-ink-900 focus:border-rio-500 focus:bg-white focus:outline-none focus:ring-3 focus:ring-rio-100"
           />
         </div>
 
@@ -357,7 +366,8 @@ function BatchBanner({
           onClick={() => onPrint(batch)}
           className="rounded-lg bg-follaje-600 px-3 py-1.5 text-xs font-bold text-white hover:brightness-105"
         >
-          🖨️ Imprimir esta hoja
+          <PrintIcon />
+          Imprimir esta hoja
         </button>
         <button
           type="button"
@@ -368,6 +378,15 @@ function BatchBanner({
         </button>
       </div>
     </div>
+  );
+}
+
+function PrintIcon() {
+  return (
+    <svg className="mr-1 inline size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
+      <path d="M6 14h12v7H6z" />
+    </svg>
   );
 }
 
@@ -473,7 +492,7 @@ function CodesTable({
             const busy = busyId === row.id;
 
             return (
-              <tr key={row.id} className="border-b border-ink-100">
+              <tr key={row.id} className="border-b border-ink-100 transition-colors hover:bg-rio-50/35">
                 <td className="py-2.5 pr-3 font-mono font-bold tracking-wide text-ink-900">
                   {row.code}
                 </td>

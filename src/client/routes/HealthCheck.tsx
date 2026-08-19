@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { HealthResponse } from "@shared/types";
-import { Tucan } from "@/components/illustrations";
+import { GuiaLectura } from "@/components/illustrations";
 
 type State =
   | { kind: "loading" }
@@ -37,7 +37,7 @@ export function HealthCheck() {
   return (
     <main className="mx-auto grid min-h-dvh max-w-md place-items-center px-5">
       <div className="w-full space-y-6 text-center">
-        <Tucan mood="greeting" className="mx-auto size-24" />
+        <GuiaLectura mood="greeting" className="mx-auto size-24" />
 
 
         <div className="space-y-1.5">

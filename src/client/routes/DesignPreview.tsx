@@ -4,12 +4,16 @@ import { OptionCard } from "@/components/ui/OptionCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Sheet } from "@/components/ui/Sheet";
 import {
-  Tucan,
+  GuiaLectura,
   HuertaIllustration,
   TransporteIllustration,
   LecturaIllustration,
   ArroyoIllustration,
   CalentamientoIllustration,
+  TanqueHuertaIllustration,
+  GeneradorIllustration,
+  DosCaminosIllustration,
+  MangosIllustration,
 } from "@/components/illustrations";
 
 /**
@@ -24,11 +28,25 @@ export function DesignPreview() {
   return (
     <main className="mx-auto min-h-dvh max-w-md space-y-8 px-5 py-6">
       <section className="space-y-3">
-        <h2 className="text-sm font-bold uppercase text-ink-300">Mascota</h2>
+        <h2 className="text-sm font-bold uppercase text-ink-300">Guía visual</h2>
         <div className="flex justify-around rounded-card bg-ink-100 p-4">
-          <Tucan mood="greeting" className="size-20" />
-          <Tucan mood="cheering" className="size-20" />
-          <Tucan mood="celebrating" className="size-20" />
+          <GuiaLectura mood="greeting" className="size-20" />
+          <GuiaLectura mood="cheering" className="size-20" />
+          <GuiaLectura mood="celebrating" className="size-20" />
+        </div>
+      </section>
+
+      <section className="space-y-3" data-asset-preview>
+        <h2 className="text-sm font-bold uppercase text-ink-300">Recursos del instrumento vigente</h2>
+        <div className="space-y-4">
+          <CalentamientoIllustration className="w-full" />
+          <TanqueHuertaIllustration className="w-full" />
+          <GeneradorIllustration className="w-full" />
+          <DosCaminosIllustration className="w-full" />
+          <MangosIllustration className="w-full" />
+          <div className="grid place-items-center bg-ink-50 p-8">
+            <GuiaLectura mood="greeting" className="size-40" />
+          </div>
         </div>
       </section>
 

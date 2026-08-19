@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Tucan } from "@/components/illustrations";
+import { GuiaLectura } from "@/components/illustrations";
 import { Button } from "@/components/ui/Button";
 
 interface InstructionsScreenProps {
@@ -12,7 +12,7 @@ export function InstructionsScreen({ label, onContinue, onExit }: InstructionsSc
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-8">
       <div className="space-y-6 text-center">
-        <Tucan mood="greeting" className="mx-auto size-24" />
+        <GuiaLectura mood="greeting" className="mx-auto size-24" />
 
         <div className="space-y-1.5">
           <h1 className="text-xl font-extrabold text-ink-900">

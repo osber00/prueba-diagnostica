@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Tucan } from "@/components/illustrations";
+import { GuiaLectura } from "@/components/illustrations";
 import { Button } from "@/components/ui/Button";
 import { ApiRequestError } from "@/lib/adminApi";
 
@@ -35,7 +35,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6 py-8">
       <div className="space-y-6 text-center">
-        <Tucan mood="greeting" className="mx-auto size-20" />
+        <GuiaLectura mood="greeting" className="mx-auto size-20" />
 
         <div className="space-y-1.5">
           <h1 className="text-xl font-extrabold text-ink-900">Panel gestor</h1>

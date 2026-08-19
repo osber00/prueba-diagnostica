@@ -9,7 +9,7 @@ import { GeneradorIllustration } from "./GeneradorIllustration";
 import { DosCaminosIllustration } from "./DosCaminosIllustration";
 import { MangosIllustration } from "./MangosIllustration";
 
-export { Tucan } from "./Tucan";
+export { GuiaLectura } from "./GuiaLectura";
 export { CalentamientoIllustration } from "./CalentamientoIllustration";
 export { HuertaIllustration } from "./HuertaIllustration";
 export { TransporteIllustration } from "./TransporteIllustration";

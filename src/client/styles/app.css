@@ -13,21 +13,29 @@
     "Nunito Variable", ui-rounded, "Segoe UI", system-ui, -apple-system,
     sans-serif;
 
-  /* Terracota — acción primaria. Evoca el camino de tierra y los muros de adobe. */
-  --color-terracota-50: #fdf1ea;
-  --color-terracota-100: #fbdcc7;
-  --color-terracota-400: #e28a52;
-  --color-terracota-500: #d9713c;
-  --color-terracota-600: #b3592c;
-  --color-terracota-700: #8c4520;
+  /* Azul principal. Los nombres históricos se conservan para no dispersar
+     cambios de clases por toda la aplicación. */
+  --color-terracota-50: #eef7fc;
+  --color-terracota-100: #d7edf8;
+  --color-terracota-400: #72b9dc;
+  --color-terracota-500: #4e9bc3;
+  --color-terracota-600: #347fa6;
+  --color-terracota-700: #28627f;
 
-  /* Río — selección e información. El arroyo y las lluvias del texto 2 y 4. */
-  --color-rio-50: #e9f6f6;
-  --color-rio-100: #c3e9e7;
-  --color-rio-400: #3fada6;
-  --color-rio-500: #1f8f87;
-  --color-rio-600: #17716a;
-  --color-rio-700: #10534e;
+  /* Azul petróleo — selección e información. */
+  --color-rio-50: #edf5f9;
+  --color-rio-100: #d4e8f1;
+  --color-rio-400: #6ba5bf;
+  --color-rio-500: #4a86a3;
+  --color-rio-600: #356c88;
+  --color-rio-700: #28536a;
+
+  /* Cielo — acción principal clara y serena. */
+  --color-cielo-100: #dff3fc;
+  --color-cielo-400: #78c9ed;
+  --color-cielo-500: #5bb8e3;
+  --color-cielo-600: #368cb5;
+  --color-cielo-700: #246680;
 
   /* Cosecha — acento y logros. El dorado del sol y de los cultivos. */
   --color-cosecha-50: #fdf5e0;
@@ -46,12 +54,12 @@
   --color-ciruela-700: #462a54;
 
   /* Alerta — error, sin ser un rojo puro de semáforo. */
-  --color-alerta-50: #fbebe9;
-  --color-alerta-100: #f4c9c4;
-  --color-alerta-400: #d97467;
-  --color-alerta-500: #c2564a;
-  --color-alerta-600: #9c4038;
-  --color-alerta-700: #762e29;
+  --color-alerta-50: #fff1ef;
+  --color-alerta-100: #ffddd8;
+  --color-alerta-400: #e98274;
+  --color-alerta-500: #d9685b;
+  --color-alerta-600: #bd5046;
+  --color-alerta-700: #913b35;
 
   /* Follaje — verde natural para vegetación en ilustraciones.
      Es un verde bosque, no el verde lima saturado de Duolingo. */
@@ -60,19 +68,19 @@
   --color-follaje-600: #3a6b38;
   --color-follaje-700: #2a4e29;
 
-  /* Neutros con una leve calidez, a tono con la paleta terrosa. */
-  --color-ink-900: #3a332e;
-  --color-ink-700: #574f47;
-  --color-ink-500: #857a70;
-  --color-ink-300: #c8beb2;
-  --color-ink-200: #e3dcd2;
-  --color-ink-100: #f0ebe4;
-  --color-ink-50: #f9f6f2;
+  /* Neutros fríos: mayor limpieza visual y contraste estable. */
+  --color-ink-900: #1e3442;
+  --color-ink-700: #405866;
+  --color-ink-500: #718591;
+  --color-ink-300: #b8c6ce;
+  --color-ink-200: #dbe4e9;
+  --color-ink-100: #edf2f5;
+  --color-ink-50: #f7f9fb;
 
   --radius-card: 1rem;
   --radius-pill: 999px;
 
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ---------------------------------------------------------------------------
@@ -85,7 +93,6 @@
   }
 
   body {
-    /* Blanco cálido en vez de blanco puro: papel, no pantalla fría. */
     @apply bg-ink-50 font-sans text-ink-700 antialiased;
     overscroll-behavior-y: none;
   }
@@ -144,7 +151,7 @@
 }
 
 @utility animate-pop-in {
-  animation: pop-in 0.24s var(--ease-bounce) both;
+  animation: pop-in 0.24s var(--ease-out-expo) both;
 }
 
 @utility animate-slide-up {

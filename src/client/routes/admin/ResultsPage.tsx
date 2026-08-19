@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import type { AnalyticsAttempt, AnalyticsResponse, PairedResult, Phase } from "@shared/types";
 import { TOTAL_ITEMS } from "@shared/types";
-import { Tucan } from "@/components/illustrations";
+import { GuiaLectura } from "@/components/illustrations";
 import { cn } from "@/lib/cn";
 import { ApiRequestError, fetchAnalytics, fetchPaired } from "@/lib/adminApi";
 import { attemptsToLongCsv, attemptsToWideCsv, downloadTextFile } from "@/lib/csv";
@@ -156,7 +156,7 @@ export function ResultsPage() {
 
         {loading && (
           <div className="flex items-center gap-3 text-sm text-ink-700">
-            <Tucan mood="greeting" className="size-8 animate-float-soft" />
+            <GuiaLectura mood="greeting" className="size-8 animate-float-soft" />
             Cargando resultados…
           </div>
         )}
@@ -264,7 +264,10 @@ function ExportButton({
       disabled={disabled}
       className="rounded-lg border-2 border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-700 hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-50"
     >
-      ⬇️ {label}
+      <svg className="mr-1 inline size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+      </svg>
+      {label}
     </button>
   );
 }
@@ -272,7 +275,7 @@ function ExportButton({
 function ChartsFallback() {
   return (
     <div className="flex items-center justify-center gap-3 rounded-card border-2 border-dashed border-ink-200 p-10 text-sm text-ink-700">
-      <Tucan mood="greeting" className="size-8 animate-float-soft" />
+      <GuiaLectura mood="greeting" className="size-8 animate-float-soft" />
       Cargando gráficos…
     </div>
   );

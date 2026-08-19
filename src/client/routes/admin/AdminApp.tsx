@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router";
-import { Tucan } from "@/components/illustrations";
+import { GuiaLectura } from "@/components/illustrations";
 import { useAdminSession } from "./useAdminSession";
 import { AdminLogin } from "./AdminLogin";
 import { AdminShell } from "./AdminShell";
@@ -10,7 +10,7 @@ import { ResultsPage } from "./ResultsPage";
 function LoadingScreen() {
   return (
     <main className="grid min-h-dvh place-items-center">
-      <Tucan mood="greeting" className="size-16 animate-float-soft" />
+      <GuiaLectura mood="greeting" className="size-16 animate-float-soft" />
     </main>
   );
 }

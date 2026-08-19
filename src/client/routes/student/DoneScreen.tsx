@@ -1,4 +1,4 @@
-import { Tucan } from "@/components/illustrations";
+import { GuiaLectura } from "@/components/illustrations";
 
 /**
  * Pantalla final. Deliberadamente sin puntaje: es una prueba diagnóstica,
@@ -7,7 +7,7 @@ import { Tucan } from "@/components/illustrations";
 export function DoneScreen() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6 py-8 text-center">
-      <Tucan mood="celebrating" className="size-32 animate-pop-in" />
+      <GuiaLectura mood="celebrating" className="size-32 animate-pop-in" />
 
       <div className="mt-6 space-y-2">
         <h1 className="text-2xl font-extrabold text-ink-900">¡Terminaste!</h1>

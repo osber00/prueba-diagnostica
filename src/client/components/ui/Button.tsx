@@ -11,19 +11,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
-/**
- * Botón con relieve: sombra inferior sólida que desaparece al presionar,
- * dando sensación de bloque físico. Es un patrón de interacción genérico
- * (no exclusivo de ninguna aplicación); lo distintivo aquí es la paleta
- * terracota/río/cosecha propia de Macaján, no el verde-lima y azul cielo
- * de apps de idiomas conocidas.
- */
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-terracota-600 text-white shadow-[0_4px_0_0_var(--color-terracota-700)] hover:bg-terracota-700 active:bg-terracota-700",
+    "bg-cielo-400 text-[#173a4a] shadow-[0_4px_0_0_var(--color-cielo-600)] hover:bg-cielo-500 active:bg-cielo-500",
   info: "bg-rio-600 text-white shadow-[0_4px_0_0_var(--color-rio-700)] hover:bg-rio-700 active:bg-rio-700",
   secondary:
-    "bg-white text-ink-700 border-2 border-ink-300 shadow-[0_4px_0_0_var(--color-ink-300)] hover:bg-ink-100",
+    "bg-white text-ink-900 border-2 border-ink-200 shadow-[0_4px_0_0_var(--color-ink-300)] hover:bg-cielo-100",
   danger:
     "bg-alerta-600 text-white shadow-[0_4px_0_0_var(--color-alerta-700)] hover:bg-alerta-700 active:bg-alerta-700",
   ghost: "bg-transparent text-ink-700 hover:bg-ink-100",
