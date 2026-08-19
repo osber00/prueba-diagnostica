@@ -386,6 +386,26 @@ studentRoutes.post("/submit", async (c) => {
       .all<Pick<AnswerRow, "question_id" | "selected_option">>(),
   ]);
 
+  // No se permite cerrar un intento con ítems calificables sin responder:
+  // el diagnóstico pierde validez si faltan datos. Se cuenta dinámicamente
+  // contra la clave de la versión del intento, no contra TOTAL_ITEMS, para
+  // no romperse si una futura versión cambia el número de ítems.
+  const expectedScored = [...key.values()].filter((entry) => entry.scored).length;
+  const answeredScored = answers.results.filter(
+    (a) => key.get(a.question_id)?.scored,
+  ).length;
+
+  if (answeredScored < expectedScored) {
+    return c.json(
+      {
+        error: `Faltan ${expectedScored - answeredScored} pregunta(s) por responder. Vuelve a la revisión y complétalas antes de enviar.`,
+        answered: answeredScored,
+        total: expectedScored,
+      },
+      409,
+    );
+  }
+
   const score = computeScore(key, answers.results);
   const timestamp = now();
 

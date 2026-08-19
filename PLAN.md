@@ -158,8 +158,8 @@ ilustraciones originales**, no una copia visual de ninguna aplicación existente
 - [x] `OptionCard` con área táctil ≥ 44 px y altura mínima 64 px
 - [x] `ProgressBar` segmentada por texto
 - [x] `Sheet` (bottom-sheet) para releer el texto
-- [x] Mascota SVG propia (tucán) con estados: saludando, animando, celebrando
-- [x] 4 ilustraciones SVG originales (huerta, transporte, lectura, arroyo) + calentamiento
+- [x] Guía visual no animal: libro abierto con lupa y lápiz
+- [x] Ilustraciones originales rasterizadas como PNG para los textos y el calentamiento
 - [x] Animaciones CSS con `prefers-reduced-motion`
 - [x] Accesibilidad: `radiogroup`, teclado, contraste AA
 - [x] Vitrina temporal (`/_preview`) para revisión visual antes de integrar al flujo
@@ -175,8 +175,8 @@ ilustraciones originales**, no una copia visual de ninguna aplicación existente
 | `follaje` | Verde natural en ilustraciones | vegetación, distinto del verde-lima genérico |
 | `alerta` | Error | rojo terroso, no un rojo semáforo puro |
 
-**Mascota:** un tucán (`Tucan.tsx`), no un búho — ave del territorio rural
-colombiano, con pico multicolor propio (terracota + cosecha + río).
+**Guía visual:** un libro abierto con lupa y lápiz (`GuiaLectura.tsx`) que
+representa leer, buscar pistas y responder, sin usar una mascota animal.
 
 **Verificación cumplida:**
 
@@ -525,7 +525,8 @@ npx wrangler deploy
 | 0 | Andamiaje verificado. `/api/health` responde y el binding D1 funciona. |
 | 1 | Instrumento v1 preservado y versión 2 sembrada. Clave vigente `CBADBCDACABDACBD` confirmada por consulta. |
 | 2 | Backend completo. 46 comprobaciones automatizadas en verde. Corregido el bloqueo por IP compartida. |
-| 3 | Identidad visual propia (paleta Macaján + mascota tucán) tras corregir un parecido no intencional con otra app. Backend re-verificado sin regresiones. |
+| 3 | Identidad visual propia (paleta azul + guía de lectura no animal) tras corregir un parecido no intencional con otra app. Backend re-verificado sin regresiones. |
 | 4 | Flujo del estudiante completo, probado de extremo a extremo en navegador real: reanudación tras recarga y resiliencia offline verificadas con la red realmente desconectada, no simuladas. Corregido un bug real de cursor en el campo de código. 50 comprobaciones automatizadas en verde. Build de producción: 84.9 KB gzip. |
 | 5 | Panel gestor completo y probado en navegador real: generación, impresión, filtros, anulación, reinicio, monitor y logout. Responsive 320/768/1440 px; Lighthouse móvil 100/100 en códigos y monitor. Corregidas rutas relativas, impresión bajo StrictMode, accesibilidad, sesiones anuladas y carrera de actualización del monitor. 62 comprobaciones API en verde. |
 | 6 | Análisis completo: tabla ordenable, 7 gráficos (Recharts en chunk diferido, el estudiante no lo descarga), psicometría por ítem (p, D, KR-20 con supresión por lista), apareo pretest-postest con detección de nombres ambiguos y exportación CSV ancho/largo/JSON verificada byte a byte. KR-20 validado contra cálculo manual independiente sobre un cohorte simulado de 37+30 estudiantes aplicado vía la API real. 79 comprobaciones automatizadas en verde. Corregidos de raíz: `typecheck` emitía `.js` en `src/` que Vite resolvía por encima de las fuentes; inyección de fórmulas en CSV; tiempos acumulados del seed. Lighthouse móvil 100/100 en resultados. |
+| — | **Corrección de integridad:** un estudiante podía enviar la prueba con ítems calificables sin responder (botón "Enviar así" en `ReviewScreen` + `POST /api/attempt/submit` sin validar completitud). Se retiró el bypass del cliente (el botón de envío ahora navega al primer pendiente mientras falten respuestas) y, sobre todo, se añadió la validación autoritativa en el Worker: `submit` cuenta las respuestas calificables contra la clave de la versión del intento y responde `409` sin cerrar el intento si faltan. La analítica conserva la supresión por lista para datos históricos ya incompletos. |

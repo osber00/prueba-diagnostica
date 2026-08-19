@@ -24,16 +24,18 @@ export function ReviewScreen({
   onExit,
   onSubmit,
 }: ReviewScreenProps) {
-  const [confirmingUnanswered, setConfirmingUnanswered] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const answeredCount = questions.filter((q) => answeredIds.has(q.id)).length;
   const pendingCount = questions.length - answeredCount;
+  const firstPendingId = questions.find((q) => !answeredIds.has(q.id))?.id;
 
   async function handleSubmit() {
-    if (pendingCount > 0 && !confirmingUnanswered) {
-      setConfirmingUnanswered(true);
+    // No se envía mientras falten preguntas: se lleva al estudiante a la
+    // primera sin responder en lugar de permitir un envío incompleto.
+    if (pendingCount > 0) {
+      if (firstPendingId !== undefined) onJumpTo(firstPendingId);
       return;
     }
 
@@ -42,9 +44,11 @@ export function ReviewScreen({
 
     try {
       await onSubmit();
-    } catch {
+    } catch (err) {
       setSubmitError(
-        "No se pudo guardar y enviar todo. Revisa tu conexión y vuelve a intentarlo; tus respuestas siguen en este dispositivo.",
+        err instanceof Error && err.message
+          ? err.message
+          : "No se pudo guardar y enviar todo. Revisa tu conexión y vuelve a intentarlo; tus respuestas siguen en este dispositivo.",
       );
       setSubmitting(false);
     }
@@ -92,29 +96,16 @@ export function ReviewScreen({
           })}
         </div>
 
-        {confirmingUnanswered && pendingCount > 0 && (
-          <div className="space-y-3 rounded-card border-2 border-cosecha-400 bg-cosecha-50 p-4">
+        {pendingCount > 0 && (
+          <div className="space-y-1 rounded-card border-2 border-cosecha-400 bg-cosecha-50 p-4">
             <p className="text-sm font-semibold text-ink-700">
-              Tienes {pendingCount} {pendingCount === 1 ? "pregunta" : "preguntas"} sin
-              responder. Puedes revisarlas o enviar así.
+              Te falta{pendingCount === 1 ? "" : "n"} {pendingCount}{" "}
+              {pendingCount === 1 ? "pregunta" : "preguntas"} por responder.
             </p>
-            <div className="flex gap-3">
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={() => setConfirmingUnanswered(false)}
-              >
-                Revisar
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => void handleSubmit()}
-                disabled={submitting}
-              >
-                Enviar así
-              </Button>
-            </div>
+            <p className="text-sm text-ink-500">
+              Debes responder todas las preguntas antes de enviar. Toca un número sin
+              color arriba, o el botón de abajo, para ir a la siguiente pendiente.
+            </p>
           </div>
         )}
 
@@ -125,15 +116,17 @@ export function ReviewScreen({
         )}
       </main>
 
-      {!confirmingUnanswered && (
-        <div className="fixed inset-x-0 bottom-0 border-t-2 border-ink-200 bg-white px-5 py-4 safe-bottom">
-          <div className="mx-auto max-w-md">
-            <Button onClick={() => void handleSubmit()} disabled={submitting}>
-              {submitting ? "Enviando…" : "Enviar mis respuestas"}
-            </Button>
-          </div>
+      <div className="fixed inset-x-0 bottom-0 border-t-2 border-ink-200 bg-white px-5 py-4 safe-bottom">
+        <div className="mx-auto max-w-md">
+          <Button onClick={() => void handleSubmit()} disabled={submitting}>
+            {submitting
+              ? "Enviando…"
+              : pendingCount > 0
+                ? "Ir a la siguiente pregunta sin responder"
+                : "Enviar mis respuestas"}
+          </Button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

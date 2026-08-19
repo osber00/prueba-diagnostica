@@ -3,7 +3,7 @@ import type { PublicQuestion } from "@shared/types";
 import { ApiRequestError, fetchAttemptState, logoutAttempt, submitAttempt } from "@/lib/api";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useElapsedTimer } from "@/hooks/useElapsedTimer";
-import { Tucan } from "@/components/illustrations";
+import { GuiaLectura } from "@/components/illustrations";
 import { buildSteps, findResumeIndex, groupByText, scoredQuestions, type TextGroup } from "./steps";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { InstructionsScreen } from "./InstructionsScreen";
@@ -229,7 +229,7 @@ function LoadingScreen() {
   return (
     <main className="grid min-h-dvh place-items-center px-6">
       <div className="text-center">
-        <Tucan mood="greeting" className="mx-auto size-16 animate-float-soft" />
+        <GuiaLectura mood="greeting" className="mx-auto size-16 animate-float-soft" />
         <p className="mt-3 text-sm text-ink-500">Cargando…</p>
       </div>
     </main>
@@ -245,7 +245,7 @@ function FatalErrorScreen({
 }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6 text-center">
-      <Tucan mood="greeting" className="size-20" />
+      <GuiaLectura mood="greeting" className="size-20" />
       <p className="mt-4 text-base font-semibold text-ink-900">
         No se pudo conectar con el servidor.
       </p>
