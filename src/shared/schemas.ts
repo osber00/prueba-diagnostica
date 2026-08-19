@@ -31,8 +31,6 @@ export const redeemRequestSchema = z.object({
 /** `PUT /api/attempt/answer` — autoguardado de una respuesta. */
 export const saveAnswerRequestSchema = z.object({
   questionId: z.number().int().positive(),
-  /** Letra canónica del instrumento. */
-  selectedOption: optionLetterSchema,
   /** Posición en pantalla donde se mostró la opción elegida (0-3). */
   displayedPosition: z.number().int().min(0).max(3),
   /** Tiempo dedicado al ítem, en milisegundos. */

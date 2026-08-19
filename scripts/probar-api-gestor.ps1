@@ -47,6 +47,17 @@ Check "acepta el codigo maestro" ($login.ok -eq $true)
 $me = Invoke-RestMethod -Uri "$BaseUrl/api/admin/me" -WebSession $s
 Check "la sesion queda activa" ($me.ok -eq $true)
 
+$adminFrenado = $false
+for ($i = 0; $i -lt 10; $i++) {
+  try {
+    Invoke-RestMethod -Uri "$BaseUrl/api/admin/login" -Method Post `
+      -Headers @{ "cf-connecting-ip" = "198.51.100.20" } `
+      -Body (@{ code = "CODIGO-INCORRECTO" } | ConvertTo-Json) -ContentType "application/json" `
+      -WebSession (New-Object Microsoft.PowerShell.Commands.WebRequestSession) | Out-Null
+  } catch { if ((StatusDe $_) -eq 429) { $adminFrenado = $true; break } }
+}
+Check "frena la fuerza bruta contra el gestor" $adminFrenado
+
 Write-Host "`n[3] Generacion de codigos" -ForegroundColor Cyan
 $gen = Invoke-RestMethod -Uri "$BaseUrl/api/admin/codes" -Method Post -WebSession $s `
   -ContentType "application/json" -Body (@{
@@ -111,7 +122,7 @@ try {
 
 try {
   Invoke-RestMethod -Uri "$BaseUrl/api/attempt/answer" -Method Put `
-    -Body (@{ questionId = $preguntaAnulada.id; selectedOption = "A"; displayedPosition = 0
+    -Body (@{ questionId = $preguntaAnulada.id; displayedPosition = 0
               timeSpentMs = 1000; elapsedMs = 1000 } | ConvertTo-Json) `
     -ContentType "application/json" -WebSession $sesionRespuestaAnulada | Out-Null
   Check "la sesion anulada no puede guardar respuestas" $false "guardo una respuesta"
@@ -163,6 +174,7 @@ for ($i = 0; $i -lt 40; $i++) {
   $azar = -join (1..8 | ForEach-Object { "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[(Get-Random -Max 31)] })
   try {
     Invoke-RestMethod -Uri "$BaseUrl/api/attempt/redeem" -Method Post `
+      -Headers @{ "cf-connecting-ip" = "198.51.100.77" } `
       -Body (@{ code = "MAC-$($azar.Substring(0,4))-$($azar.Substring(4,4))" } | ConvertTo-Json) `
       -ContentType "application/json" `
       -WebSession (New-Object Microsoft.PowerShell.Commands.WebRequestSession) | Out-Null

@@ -7,6 +7,7 @@ interface OptionCardProps {
   incorrect?: boolean;
   disabled?: boolean;
   onClick?: () => void;
+  tabIndex?: number;
   children: ReactNode;
 }
 
@@ -27,6 +28,7 @@ export function OptionCard({
   incorrect = false,
   disabled = false,
   onClick,
+  tabIndex,
   children,
 }: OptionCardProps) {
   const isInteractive = !disabled && onClick !== undefined;
@@ -34,6 +36,9 @@ export function OptionCard({
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={selected}
+      tabIndex={tabIndex}
       disabled={disabled || !isInteractive}
       onClick={onClick}
       className={cn(

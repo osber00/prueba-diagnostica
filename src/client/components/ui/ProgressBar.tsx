@@ -17,7 +17,14 @@ interface ProgressBarProps {
  */
 export function ProgressBar({ total, current, completed = [] }: ProgressBarProps) {
   return (
-    <div className="flex items-center gap-1.5" role="progressbar" aria-label="Progreso">
+    <div
+      className="flex items-center gap-1.5"
+      role="progressbar"
+      aria-label="Progreso"
+      aria-valuemin={0}
+      aria-valuemax={total}
+      aria-valuenow={completed.length}
+    >
       {Array.from({ length: total }, (_, i) => {
         const isCompleted = completed.includes(i);
         const isCurrent = i === current;

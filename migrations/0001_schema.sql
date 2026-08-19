@@ -142,7 +142,7 @@ CREATE TABLE audit_log (
 
 CREATE INDEX idx_audit_created ON audit_log(created_at DESC);
 
--- Control de intentos de canje por IP, para frenar la fuerza bruta de códigos.
+-- Control de intentos fallidos por clave/IP para canje y acceso del gestor.
 CREATE TABLE redeem_attempts (
   ip           TEXT    PRIMARY KEY,
   count        INTEGER NOT NULL DEFAULT 0,

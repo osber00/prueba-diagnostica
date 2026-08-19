@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import type { OptionLetter, PublicQuestion } from "@shared/types";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import type { PublicQuestion } from "@shared/types";
 import type { SaveAnswerRequest } from "@shared/schemas";
 import { Button } from "@/components/ui/Button";
 import { OptionCard } from "@/components/ui/OptionCard";
@@ -17,12 +17,13 @@ interface QuestionScreenProps {
   timerLabel: string;
   attemptStartedAt: number;
   /** Selección previa, si el estudiante ya había respondido y volvió atrás. */
-  initialSelection: OptionLetter | null;
+  initialSelection: number | null;
   /** Actualiza el estado local del padre (progreso, resumen). No hace red. */
-  onAnswered: (questionId: number, option: OptionLetter) => void;
+  onAnswered: (questionId: number, position: number) => void;
   /** Autoguardado en segundo plano, usado solo para los 16 ítems reales. */
   queueAnswer: (job: SaveAnswerRequest) => void;
   onBack?: (() => void) | undefined;
+  onExit: () => void;
   onNext: () => void;
 }
 
@@ -38,12 +39,13 @@ export function QuestionScreen({
   onAnswered,
   queueAnswer,
   onBack,
+  onExit,
   onNext,
 }: QuestionScreenProps) {
-  const [selected, setSelected] = useState<OptionLetter | null>(initialSelection);
+  const [selected, setSelected] = useState<number | null>(initialSelection);
   const [feedback, setFeedback] = useState<{
     isCorrect: boolean;
-    correctOption: OptionLetter;
+    correctPosition: number;
   } | null>(null);
   const [warmupError, setWarmupError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -63,16 +65,15 @@ export function QuestionScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.id]);
 
-  async function handleSelect(letter: OptionLetter, position: number) {
+  async function handleSelect(position: number) {
     const timeSpentMs = Date.now() - enteredAtRef.current;
     enteredAtRef.current = Date.now();
 
-    setSelected(letter);
-    onAnswered(question.id, letter);
+    setSelected(position);
+    onAnswered(question.id, position);
 
     const job: SaveAnswerRequest = {
       questionId: question.id,
-      selectedOption: letter,
       displayedPosition: position,
       timeSpentMs,
       elapsedMs: Date.now() - attemptStartedAt,
@@ -98,9 +99,28 @@ export function QuestionScreen({
 
   const locked = isWarmup(question) && feedback !== null;
 
+  function handleRadioKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const radios = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]'),
+    );
+    const current = radios.indexOf(document.activeElement as HTMLButtonElement);
+    if (current < 0) return;
+
+    let next = current;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % radios.length;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (current - 1 + radios.length) % radios.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = radios.length - 1;
+    else return;
+
+    event.preventDefault();
+    radios[next]?.focus();
+    radios[next]?.click();
+  }
+
   return (
     <div className="min-h-dvh pb-32">
-      <StudentTopBar progress={progress} timerLabel={timerLabel} onBack={onBack} />
+      <StudentTopBar progress={progress} timerLabel={timerLabel} onBack={onBack} onExit={onExit} />
 
       <main className="mx-auto max-w-md space-y-5 px-5 pt-4">
         {isWarmup(question) && (
@@ -130,24 +150,30 @@ export function QuestionScreen({
           {question.stem}
         </h1>
 
-        <div role="radiogroup" aria-label="Opciones de respuesta" className="space-y-3">
+        <div
+          role="radiogroup"
+          aria-label="Opciones de respuesta"
+          className="space-y-3"
+          onKeyDown={handleRadioKeyDown}
+        >
           {question.options.map((opt, i) => {
             let correct = false;
             let incorrect = false;
 
             if (isWarmup(question) && feedback) {
-              if (opt.letter === feedback.correctOption) correct = true;
-              else if (opt.letter === selected && !feedback.isCorrect) incorrect = true;
+              if (i === feedback.correctPosition) correct = true;
+              else if (i === selected && !feedback.isCorrect) incorrect = true;
             }
 
             return (
               <OptionCard
-                key={opt.letter}
-                selected={opt.letter === selected && !feedback}
+                key={`${question.id}-${i}`}
+                selected={i === selected}
                 correct={correct}
                 incorrect={incorrect}
                 disabled={locked}
-                onClick={() => void handleSelect(opt.letter, i)}
+                tabIndex={selected === i || (selected === null && i === 0) ? 0 : -1}
+                onClick={() => void handleSelect(i)}
               >
                 {opt.content}
               </OptionCard>
@@ -176,7 +202,7 @@ export function QuestionScreen({
           <Button onClick={onNext}>
             {isWarmup(question) ? "Continuar con la prueba" : "Siguiente"}
           </Button>
-          {!selected && !isWarmup(question) && (
+          {selected === null && !isWarmup(question) && (
             <p className="mt-2 text-center text-xs text-ink-300">
               Puedes responder esta pregunta más tarde, desde la revisión final.
             </p>

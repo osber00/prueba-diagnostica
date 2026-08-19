@@ -9,13 +9,14 @@ interface StudentTopBarProps {
   /** Etiqueta del cronómetro, ya formateada como m:ss. */
   timerLabel: string;
   onBack?: (() => void) | undefined;
+  onExit: () => void;
 }
 
 /**
  * Encabezado visible durante lectura, preguntas y revisión: progreso
  * segmentado sobre los 16 ítems calificables + cronómetro visible sin corte.
  */
-export function StudentTopBar({ progress, timerLabel, onBack }: StudentTopBarProps) {
+export function StudentTopBar({ progress, timerLabel, onBack, onExit }: StudentTopBarProps) {
   return (
     <div className="sticky top-0 z-10 space-y-2 bg-ink-50/95 px-4 pb-3 pt-4 backdrop-blur-sm">
       <div className="flex items-center gap-3">
@@ -59,6 +60,22 @@ export function StudentTopBar({ progress, timerLabel, onBack }: StudentTopBarPro
           </svg>
           {timerLabel}
         </div>
+
+        <button
+          type="button"
+          onClick={onExit}
+          aria-label="Salir y cambiar de estudiante"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-ink-100"
+        >
+          <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.25}
+              d="M10 17l5-5-5-5m5 5H3m9-8h6a2 2 0 012 2v12a2 2 0 01-2 2h-6"
+            />
+          </svg>
+        </button>
       </div>
     </div>
   );

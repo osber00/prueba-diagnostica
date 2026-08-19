@@ -9,6 +9,7 @@ interface ReadingScreenProps {
   progress: { current: number; completed: number[] } | null;
   timerLabel: string;
   onBack?: (() => void) | undefined;
+  onExit: () => void;
   onContinue: () => void;
 }
 
@@ -17,6 +18,7 @@ export function ReadingScreen({
   progress,
   timerLabel,
   onBack,
+  onExit,
   onContinue,
 }: ReadingScreenProps) {
   const Illustration = getIllustration(group.text.illustrationKey);
@@ -24,7 +26,7 @@ export function ReadingScreen({
 
   return (
     <div className="min-h-dvh pb-28">
-      <StudentTopBar progress={progress} timerLabel={timerLabel} onBack={onBack} />
+      <StudentTopBar progress={progress} timerLabel={timerLabel} onBack={onBack} onExit={onExit} />
 
       <main className="mx-auto max-w-md space-y-5 px-5 pt-4">
         {isWarmup && (

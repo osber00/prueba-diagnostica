@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { OptionLetter, PublicQuestion } from "@shared/types";
-import { ApiRequestError, fetchAttemptState, submitAttempt } from "@/lib/api";
+import type { PublicQuestion } from "@shared/types";
+import { ApiRequestError, fetchAttemptState, logoutAttempt, submitAttempt } from "@/lib/api";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useElapsedTimer } from "@/hooks/useElapsedTimer";
 import { Tucan } from "@/components/illustrations";
@@ -29,13 +29,13 @@ export function StudentApp() {
   const [steps, setSteps] = useState<ReturnType<typeof buildSteps>>([]);
   const [stepIndex, setStepIndex] = useState(0);
   const [answeredIds, setAnsweredIds] = useState<Set<number>>(new Set());
-  const [selections, setSelections] = useState<Map<number, OptionLetter>>(new Map());
+  const [selections, setSelections] = useState<Map<number, number>>(new Map());
   const [fatalError, setFatalError] = useState<string | null>(null);
 
   // Se llaman siempre, sin condicionar al estado de carga: los Hooks de React
   // no pueden invocarse condicionalmente. Los valores de reserva (0, ahora)
   // nunca llegan a mostrarse porque solo se usan dentro de la fase "flow".
-  const { queueAnswer } = useAutosave(attempt?.id ?? 0);
+  const { queueAnswer, flushPending } = useAutosave(attempt?.id ?? 0);
   const timer = useElapsedTimer(attempt?.startedAt ?? Date.now());
 
   const load = useCallback(async () => {
@@ -45,7 +45,7 @@ export function StudentApp() {
       const grouped = groupByText(state.texts, state.questions);
       const builtSteps = buildSteps(grouped);
       const answered = new Set(state.answers.map((a) => a.questionId));
-      const sel = new Map(state.answers.map((a) => [a.questionId, a.selectedOption]));
+      const sel = new Map(state.answers.map((a) => [a.questionId, a.displayedPosition]));
 
       setAttempt({
         id: state.attempt.id,
@@ -102,7 +102,7 @@ export function StudentApp() {
     [steps.length],
   );
 
-  const handleAnswered = useCallback((questionId: number, option: OptionLetter) => {
+  const handleAnswered = useCallback((questionId: number, position: number) => {
     setAnsweredIds((prev) => {
       const next = new Set(prev);
       next.add(questionId);
@@ -110,7 +110,7 @@ export function StudentApp() {
     });
     setSelections((prev) => {
       const next = new Map(prev);
-      next.set(questionId, option);
+      next.set(questionId, position);
       return next;
     });
   }, []);
@@ -124,6 +124,10 @@ export function StudentApp() {
   );
 
   const handleSubmit = useCallback(async () => {
+    const allSaved = await flushPending();
+    if (!allSaved) {
+      throw new Error("Hay respuestas pendientes de guardar.");
+    }
     await submitAttempt();
     if (attempt) {
       // Ya no hay nada más que reintentar para este intento: se limpia la
@@ -131,7 +135,23 @@ export function StudentApp() {
       localStorage.removeItem(`pdi_autoguardado_${attempt.id}`);
     }
     setPhase("done");
-  }, [attempt]);
+  }, [attempt, flushPending]);
+
+  const handleExit = useCallback(async () => {
+    try {
+      await flushPending();
+      await logoutAttempt();
+      setAttempt(null);
+      setGroups([]);
+      setSteps([]);
+      setAnsweredIds(new Set());
+      setSelections(new Map());
+      setPhase("welcome");
+    } catch {
+      setFatalError("No se pudo cerrar la sesión. Revisa la conexión y vuelve a intentarlo.");
+      setPhase("fatal-error");
+    }
+  }, [flushPending]);
 
   if (phase === "checking") return <LoadingScreen />;
 
@@ -150,7 +170,13 @@ export function StudentApp() {
 
   switch (step.type) {
     case "instructions":
-      return <InstructionsScreen label={attempt.label} onContinue={goNext} />;
+      return (
+        <InstructionsScreen
+          label={attempt.label}
+          onContinue={goNext}
+          onExit={() => void handleExit()}
+        />
+      );
 
     case "reading":
       return (
@@ -159,6 +185,7 @@ export function StudentApp() {
           progress={progressForGroup(step.group)}
           timerLabel={timer.label}
           onBack={stepIndex > 0 ? goBack : undefined}
+          onExit={() => void handleExit()}
           onContinue={goNext}
         />
       );
@@ -175,6 +202,7 @@ export function StudentApp() {
           onAnswered={handleAnswered}
           queueAnswer={queueAnswer}
           onBack={goBack}
+          onExit={() => void handleExit()}
           onNext={goNext}
         />
       );
@@ -187,6 +215,7 @@ export function StudentApp() {
           timerLabel={timer.label}
           onJumpTo={handleJumpTo}
           onBack={goBack}
+          onExit={() => void handleExit()}
           onSubmit={handleSubmit}
         />
       );

@@ -48,8 +48,6 @@ export interface HealthResponse {
 
 /** Opción tal como se envía al estudiante (ya barajada, sin marca de correcta). */
 export interface PublicOption {
-  /** Letra canónica del instrumento. El servidor la usa para calificar. */
-  letter: OptionLetter;
   content: string;
 }
 
@@ -81,7 +79,7 @@ export interface PublicText {
  */
 export interface SavedAnswer {
   questionId: number;
-  selectedOption: OptionLetter;
+  displayedPosition: number;
 }
 
 /** Respuesta de `GET /api/attempt`. */
@@ -119,7 +117,7 @@ export interface SaveAnswerResponse {
   savedAt: number;
   feedback?: {
     isCorrect: boolean;
-    correctOption: OptionLetter;
+    correctPosition: number;
   };
 }
 
@@ -173,6 +171,7 @@ export interface LiveAttemptRow {
   last_seen_at: number;
   elapsed_ms: number;
   answered: number;
+  last_question_number: number | null;
 }
 
 /** Fila de la tabla de resultados. */

@@ -26,6 +26,11 @@ import {
 } from "../lib/session";
 import { logAudit } from "../lib/audit";
 import { computeItemStats, computeKR20, type AnswerForStats } from "../lib/psychometrics";
+import {
+  canAttemptAdminLogin,
+  clearAdminLoginFailures,
+  recordFailedAdminLogin,
+} from "../lib/ratelimit";
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -67,6 +72,11 @@ adminRoutes.use("*", async (c, next) => {
 });
 
 adminRoutes.post("/login", async (c) => {
+  const ip = c.req.header("cf-connecting-ip") ?? "desconocida";
+  if (!(await canAttemptAdminLogin(c.env.DB, ip))) {
+    return c.json({ error: "Demasiados intentos. Espera 15 minutos." }, 429);
+  }
+
   const body: unknown = await c.req.json().catch(() => null);
   const input = adminLoginRequestSchema.safeParse(body);
   if (!input.success) return c.json({ error: "Código inválido" }, 400);
@@ -80,6 +90,9 @@ adminRoutes.post("/login", async (c) => {
   // Comparación de tiempo constante: no debe poder deducirse el código
   // midiendo cuánto tarda la respuesta.
   if (!timingSafeEqual(input.data.code, expected)) {
+    if (!(await recordFailedAdminLogin(c.env.DB, ip))) {
+      return c.json({ error: "No se pudo validar el acceso" }, 503);
+    }
     await logAudit(c.env.DB, "gestor", "login_fallido", c.req.header("cf-connecting-ip"));
     return c.json({ error: "Código incorrecto" }, 401);
   }
@@ -103,6 +116,7 @@ adminRoutes.post("/login", async (c) => {
   ]);
 
   await setAdminSession(c, sessionId, c.env.SESSION_SECRET);
+  await clearAdminLoginFailures(c.env.DB, ip);
   await logAudit(c.env.DB, "gestor", "login_exitoso");
 
   return c.json({ ok: true });
@@ -257,10 +271,14 @@ adminRoutes.post("/codes/:id/reset", async (c) => {
 adminRoutes.get("/live", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT ac.code, ac.label, ac.phase,
-            a.id AS attempt_id, a.status, a.started_at, a.last_seen_at, a.elapsed_ms,
-            (SELECT COUNT(*) FROM answers ans
-              JOIN questions q ON q.id = ans.question_id
-             WHERE ans.attempt_id = a.id AND q.is_scored = 1) AS answered
+             a.id AS attempt_id, a.status, a.started_at, a.last_seen_at, a.elapsed_ms,
+             (SELECT COUNT(*) FROM answers ans
+               JOIN questions q ON q.id = ans.question_id
+              WHERE ans.attempt_id = a.id AND q.is_scored = 1) AS answered,
+             (SELECT q.number FROM answers ans
+               JOIN questions q ON q.id = ans.question_id
+              WHERE ans.attempt_id = a.id AND q.is_scored = 1
+              ORDER BY ans.answered_at DESC LIMIT 1) AS last_question_number
        FROM attempts a
        JOIN access_codes ac ON ac.id = a.access_code_id
       WHERE a.status = 'in_progress'

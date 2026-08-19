@@ -7,7 +7,7 @@ import { adminRoutes } from "./routes/admin";
 
 export type { Env, AppEnv } from "./types";
 
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.3.0";
 
 const app = new Hono<AppEnv>().basePath("/api");
 
@@ -38,6 +38,20 @@ app.get("/health", async (c) => {
   });
 });
 
+app.use("/attempt/*", async (c, next) => {
+  if (!hasValidSecrets(c.env)) {
+    return c.json({ error: "El servicio no está configurado correctamente" }, 503);
+  }
+  return next();
+});
+
+app.use("/admin/*", async (c, next) => {
+  if (!hasValidSecrets(c.env)) {
+    return c.json({ error: "El servicio no está configurado correctamente" }, 503);
+  }
+  return next();
+});
+
 app.route("/attempt", studentRoutes);
 app.route("/admin", adminRoutes);
 
@@ -50,3 +64,12 @@ app.onError((error, c) => {
 });
 
 export default app;
+
+function hasValidSecrets(env: AppEnv["Bindings"]): boolean {
+  return (
+    typeof env.ADMIN_MASTER_CODE === "string" &&
+    env.ADMIN_MASTER_CODE.length >= 6 &&
+    typeof env.SESSION_SECRET === "string" &&
+    new TextEncoder().encode(env.SESSION_SECRET).length >= 32
+  );
+}

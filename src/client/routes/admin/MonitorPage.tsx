@@ -86,12 +86,13 @@ export function MonitorPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-card border-2 border-ink-200 bg-white">
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full min-w-[680px] text-left text-sm">
             <thead>
               <tr className="border-b-2 border-ink-100 text-xs uppercase text-ink-700">
                 <th className="px-4 py-3">Estudiante</th>
                 <th className="px-4 py-3">Fase</th>
                 <th className="px-4 py-3">Progreso</th>
+                <th className="px-4 py-3">Último ítem</th>
                 <th className="px-4 py-3">Tiempo en la prueba</th>
                 <th className="px-4 py-3">Última actividad</th>
               </tr>
@@ -118,6 +119,11 @@ export function MonitorPage() {
                         </div>
                         <span className="tabular-nums text-ink-700">{a.answered}/16</span>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 font-semibold tabular-nums text-ink-700">
+                      {a.last_question_number === null
+                        ? "Aún no responde"
+                        : `Pregunta ${a.last_question_number}`}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-ink-700">
                       {formatDuration(serverTime - a.started_at)}

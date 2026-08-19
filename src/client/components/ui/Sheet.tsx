@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 interface SheetProps {
@@ -16,15 +16,42 @@ interface SheetProps {
  * backdrop (fondo oscurecido).
  */
 export function Sheet({ open, onClose, title, children }: SheetProps) {
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
 
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      if (e.key !== "Tab") return;
+
+      const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable || focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
     };
 
     document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      previousFocusRef.current?.focus();
+    };
   }, [open, onClose]);
 
   useEffect(() => {
@@ -50,13 +77,14 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
 
       {/* Panel */}
       <div
+        ref={panelRef}
         className={cn(
           "relative w-full max-h-[80dvh] bg-white rounded-t-3xl shadow-2xl",
           "flex flex-col animate-slide-up safe-bottom",
         )}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="sheet-title"
+        aria-labelledby={titleId}
       >
         {/* Barra de arrastre visual (no funcional, pero indica que es dismissible) */}
         <div className="flex justify-center pt-3 pb-1">
@@ -65,10 +93,11 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b-2 border-ink-100">
-          <h2 id="sheet-title" className="text-lg font-extrabold text-ink-900">
+          <h2 id={titleId} className="text-lg font-extrabold text-ink-900">
             {title}
           </h2>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             className="flex size-10 items-center justify-center rounded-full hover:bg-ink-100 transition-colors"

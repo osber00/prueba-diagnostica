@@ -46,35 +46,45 @@ Check "no aparece 'correct'"     (-not ($json -match '(?i)"correct'))
 Check "no aparece 'isCorrect'"   (-not ($json -match '(?i)isCorrect'))
 Check "no aparece 'rationale'"   (-not ($json -match '(?i)rationale'))
 Check "no aparece 'is_scored'"   (-not ($json -match '(?i)is_scored'))
+Check "no aparecen letras canonicas" (-not ($json -match '(?i)\"letter\"|selectedOption'))
 
 Write-Host "`n[4] Aleatorizacion de opciones" -ForegroundColor Cyan
-$ordenA = ($state.questions | ForEach-Object { ($_.options | ForEach-Object { $_.letter }) -join "" }) -join "|"
+$ordenA = ($state.questions | ForEach-Object { ($_.options | ForEach-Object { $_.content }) -join "||" }) -join "|"
 $s2 = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 Invoke-RestMethod -Uri "$BaseUrl/api/attempt/redeem" -Method Post `
   -Body (@{ code = "MAC-TEST-BBBB" } | ConvertTo-Json) -ContentType "application/json" `
   -WebSession $s2 | Out-Null
 $state2 = Invoke-RestMethod -Uri "$BaseUrl/api/attempt" -WebSession $s2
-$ordenB = ($state2.questions | ForEach-Object { ($_.options | ForEach-Object { $_.letter }) -join "" }) -join "|"
+$ordenB = ($state2.questions | ForEach-Object { ($_.options | ForEach-Object { $_.content }) -join "||" }) -join "|"
 Check "dos estudiantes reciben ordenes distintos" ($ordenA -ne $ordenB)
 
 $state1b = Invoke-RestMethod -Uri "$BaseUrl/api/attempt" -WebSession $session
-$ordenA2 = ($state1b.questions | ForEach-Object { ($_.options | ForEach-Object { $_.letter }) -join "" }) -join "|"
+$ordenA2 = ($state1b.questions | ForEach-Object { ($_.options | ForEach-Object { $_.content }) -join "||" }) -join "|"
 Check "el orden es estable al recargar" ($ordenA -eq $ordenA2)
 
 Write-Host "`n[5] Autoguardado" -ForegroundColor Cyan
 # Se responde el instrumento completo: los pares se aciertan, los impares se fallan.
-$clave = @{ 1='B';2='D';3='A';4='C';5='C';6='A';7='D';8='B';9='B';10='D';11='A';12='C';13='C';14='A';15='D';16='B' }
+$correctas = @{
+  1='Porque recibían más sol y el suelo perdía humedad con rapidez.'; 2='Porque la cobertura y el riego ayudaron a conservar mejor la humedad.'
+  3='Las plantas del extremo soleado podrían marchitarse antes que las demás.'; 4='El suelo conservaría mejor la humedad y disminuiría el riesgo de marchitez.'
+  5='Porque el agua acumulada y el camino deteriorado hicieron más lento el recorrido.'; 6='Porque anticiparon posibles dificultades y salieron de sus casas con mayor tiempo.'
+  7='Podrían repetirse acumulaciones de agua y nuevos retrasos durante el recorrido.'; 8='El agua podría evacuar mejor y reducirse su acumulación sobre el camino.'
+  9='La participación disminuyó cuando se eliminó el intercambio de ideas en parejas.'; 10='Porque se eliminó el espacio para comparar pistas antes de responder individualmente.'
+  11='Cada estudiante formulará primero una idea propia antes de compararla con otra.'; 12='Más estudiantes podrían explicar y justificar sus conclusiones utilizando pistas del texto.'
+  13='La lluvia arrastró tierra suelta desde la pendiente hasta el cauce del arroyo.'; 14='Parte de los residuos abandonados fue transportada por el agua hasta el arroyo.'
+  15='Disminuiría la cantidad de suelo arrastrado hacia el arroyo durante las lluvias.'; 16='Los plásticos podrían seguir llegando al arroyo y acumulándose en algunos sectores.'
+}
 $esperado = 0
 foreach ($q in ($state.questions | Where-Object { $_.number -ge 1 })) {
-  $correcta = $clave[[int]$q.number]
+  $correcta = $correctas[[int]$q.number]
   if ($q.number % 2 -eq 0) {
     $elegida = $correcta; $esperado++
   } else {
-    $elegida = (@('A','B','C','D') | Where-Object { $_ -ne $correcta })[0]
+    $elegida = @($q.options | Where-Object { $_.content -ne $correcta })[0].content
   }
-  $pos = [array]::IndexOf(($q.options | ForEach-Object { $_.letter }), $elegida)
+  $pos = [array]::IndexOf(($q.options | ForEach-Object { $_.content }), $elegida)
   Invoke-RestMethod -Uri "$BaseUrl/api/attempt/answer" -Method Put `
-    -Body (@{ questionId = $q.id; selectedOption = $elegida; displayedPosition = $pos
+    -Body (@{ questionId = $q.id; displayedPosition = $pos
               timeSpentMs = 5000; elapsedMs = 60000 } | ConvertTo-Json) `
     -ContentType "application/json" -WebSession $session | Out-Null
 }
@@ -84,8 +94,9 @@ Check "la respuesta guardada no revela correccion" (-not (($state3 | ConvertTo-J
 
 Write-Host "`n[6] Idempotencia del autoguardado" -ForegroundColor Cyan
 $q1 = $state.questions | Where-Object { $_.number -eq 2 } | Select-Object -First 1
+$q1Pos = [array]::IndexOf(($q1.options | ForEach-Object { $_.content }), $correctas[2])
 Invoke-RestMethod -Uri "$BaseUrl/api/attempt/answer" -Method Put `
-  -Body (@{ questionId = $q1.id; selectedOption = 'D'; displayedPosition = 0
+  -Body (@{ questionId = $q1.id; displayedPosition = $q1Pos
             timeSpentMs = 1000; elapsedMs = 61000 } | ConvertTo-Json) `
   -ContentType "application/json" -WebSession $session | Out-Null
 $state4 = Invoke-RestMethod -Uri "$BaseUrl/api/attempt" -WebSession $session
@@ -93,15 +104,15 @@ Check "reenviar no duplica filas" (@($state4.answers).Count -eq 16) "count=$(@($
 
 Write-Host "`n[6b] Retroalimentacion exclusiva del calentamiento" -ForegroundColor Cyan
 $calentamiento = $state.questions | Where-Object { $_.number -eq 0 } | Select-Object -First 1
-$claveCalentamiento = 'B'  # letra canonica correcta del ejemplo
-$posCorrecta = [array]::IndexOf(($calentamiento.options | ForEach-Object { $_.letter }), $claveCalentamiento)
+$contenidoCalentamiento = 'Porque vio que podía llover y fue a buscar una sombrilla.'
+$posCorrecta = [array]::IndexOf(($calentamiento.options | ForEach-Object { $_.content }), $contenidoCalentamiento)
 $respCalentamiento = Invoke-RestMethod -Uri "$BaseUrl/api/attempt/answer" -Method Put `
-  -Body (@{ questionId = $calentamiento.id; selectedOption = $claveCalentamiento; displayedPosition = $posCorrecta
+  -Body (@{ questionId = $calentamiento.id; displayedPosition = $posCorrecta
             timeSpentMs = 3000; elapsedMs = 65000 } | ConvertTo-Json) `
   -ContentType "application/json" -WebSession $session
 Check "el calentamiento SI incluye feedback" ($null -ne $respCalentamiento.feedback)
 Check "el feedback marca la respuesta como correcta" ($respCalentamiento.feedback.isCorrect -eq $true)
-Check "el feedback expone la opcion correcta" ($respCalentamiento.feedback.correctOption -eq $claveCalentamiento)
+Check "el feedback identifica la posicion correcta" ($respCalentamiento.feedback.correctPosition -eq $posCorrecta)
 
 # Se guarda el item 1 como INCORRECTO ('A', no 'B') a propósito: el bucle de
 # autoguardado de la sección [5] ya decidió que el item 1 (impar) debía quedar
@@ -109,8 +120,9 @@ Check "el feedback expone la opcion correcta" ($respCalentamiento.feedback.corre
 # respuesta correcta, el puntaje total subiría a 9 y rompería la aserción de
 # `probar-api-gestor.ps1`, que espera exactamente 8.
 $q1Real = $state.questions | Where-Object { $_.number -eq 1 } | Select-Object -First 1
+$posIncorrecta = [array]::IndexOf(($q1Real.options | ForEach-Object { $_.content }), @($q1Real.options | Where-Object { $_.content -ne $correctas[1] })[0].content)
 $respItemReal = Invoke-RestMethod -Uri "$BaseUrl/api/attempt/answer" -Method Put `
-  -Body (@{ questionId = $q1Real.id; selectedOption = 'A'; displayedPosition = 0
+  -Body (@{ questionId = $q1Real.id; displayedPosition = $posIncorrecta
             timeSpentMs = 3000; elapsedMs = 66000 } | ConvertTo-Json) `
   -ContentType "application/json" -WebSession $session
 Check "un item calificable NO incluye feedback" ($null -eq $respItemReal.feedback)

@@ -11,6 +11,7 @@ interface ReviewScreenProps {
   timerLabel: string;
   onJumpTo: (questionId: number) => void;
   onBack?: (() => void) | undefined;
+  onExit: () => void;
   onSubmit: () => Promise<void>;
 }
 
@@ -20,6 +21,7 @@ export function ReviewScreen({
   timerLabel,
   onJumpTo,
   onBack,
+  onExit,
   onSubmit,
 }: ReviewScreenProps) {
   const [confirmingUnanswered, setConfirmingUnanswered] = useState(false);
@@ -42,7 +44,7 @@ export function ReviewScreen({
       await onSubmit();
     } catch {
       setSubmitError(
-        "No se pudo enviar. Revisa tu conexión; tus respuestas ya están guardadas y puedes volver a intentarlo.",
+        "No se pudo guardar y enviar todo. Revisa tu conexión y vuelve a intentarlo; tus respuestas siguen en este dispositivo.",
       );
       setSubmitting(false);
     }
@@ -57,6 +59,7 @@ export function ReviewScreen({
         }) }}
         timerLabel={timerLabel}
         onBack={onBack}
+        onExit={onExit}
       />
 
       <main className="mx-auto max-w-md space-y-5 px-5 pt-4">

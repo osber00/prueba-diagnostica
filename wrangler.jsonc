@@ -13,13 +13,12 @@
     "not_found_handling": "single-page-application"
   },
 
-  // Base de datos. Reemplaza "database_id" con el valor que devuelve:
-  //   npx wrangler d1 create prueba-inferencial
+  // Base de datos de producción en Cloudflare D1.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "prueba-inferencial",
-      "database_id": "REEMPLAZAR_TRAS_EJECUTAR_wrangler_d1_create",
+      "database_id": "09667024-8515-44a9-874b-2de08634dac1",
       "migrations_dir": "migrations"
     }
   ],

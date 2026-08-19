@@ -49,6 +49,8 @@ Requisitos: Node.js 20.19+ (o 22.12+) y npm.
 ```bash
 npm install
 
+# Los tipos de Cloudflare se generan automáticamente al ejecutar dev/build/typecheck.
+
 # 1. Variables de entorno locales (la plantilla ya trae valores de desarrollo)
 cp .dev.vars.example .dev.vars        # Windows: copy .dev.vars.example .dev.vars
 
@@ -72,8 +74,9 @@ Puntos de entrada en local:
 
 ### Verificación automatizada
 
-Tres suites PowerShell cubren la API de extremo a extremo
-(79 comprobaciones en total). Requieren el servidor de desarrollo corriendo:
+Tres suites PowerShell cubren la API de extremo a extremo. Además, Vitest
+cubre la cola offline, el barajado y la calificación. Las suites API requieren
+el servidor de desarrollo corriendo:
 
 ```bash
 # Datos base requeridos por las dos primeras suites
@@ -86,6 +89,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/probar-api-gestor.ps
 # Analítica: siembra un cohorte simulado de 37 + 30 estudiantes y valida
 # KR-20 contra un cálculo manual independiente (tarda varios minutos)
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/probar-api-analitica.ps1
+
+# Pruebas unitarias (no requieren servidor)
+npm test
 ```
 
 Utilidades de datos locales:
@@ -105,7 +111,28 @@ npm run typecheck    # tsc -b, sin emitir archivos
 npm run build        # typecheck + build de producción (Worker + SPA)
 ```
 
-## Despliegue en Cloudflare (gratis)
+## Producción en Cloudflare
+
+La aplicación está desplegada en:
+
+- Estudiante: <https://prueba-inferencial-macajan.osber00.workers.dev>
+- Panel gestor: <https://prueba-inferencial-macajan.osber00.workers.dev/gestor>
+- Salud: <https://prueba-inferencial-macajan.osber00.workers.dev/api/health>
+
+La base D1 remota ya está creada y migrada. Para publicar cambios posteriores:
+
+```bash
+npm run deploy
+```
+
+Para rotar los secretos de producción:
+
+```bash
+npx wrangler secret put ADMIN_MASTER_CODE
+npx wrangler secret put SESSION_SECRET
+```
+
+### Despliegue en otra cuenta
 
 Una sola vez, en una terminal con esta carpeta como directorio de trabajo:
 
@@ -117,10 +144,10 @@ npx wrangler login
 npx wrangler d1 create prueba-inferencial
 ```
 
-Edita `wrangler.jsonc` y reemplaza el valor provisional:
+Edita `wrangler.jsonc` y reemplaza el `database_id` actual:
 
 ```jsonc
-"database_id": "REEMPLAZAR_TRAS_EJECUTAR_wrangler_d1_create",
+"database_id": "ID_DEVUELTO_POR_CLOUDFLARE",
 ```
 
 por el `database_id` real devuelto en el paso anterior. Después:
@@ -141,8 +168,7 @@ npx wrangler secret put SESSION_SECRET
 npm run deploy
 ```
 
-La aplicación queda en
-`https://prueba-inferencial-macajan.<tu-subdominio>.workers.dev`.
+La URL final depende del subdominio `workers.dev` de la nueva cuenta.
 
 Verificación posterior al despliegue:
 
@@ -231,13 +257,15 @@ curl https://prueba-inferencial-macajan.<tu-subdominio>.workers.dev/api/health
 
 - **Anonimato hacia el estudiante:** el código es su única identidad; el
   nombre solo existe en el panel gestor y en la hoja impresa.
-- **La clave de respuestas nunca sale del servidor:** la calificación ocurre
-  en el Worker; el cliente jamás recibe la opción correcta de los 16 ítems
-  (verificado por pruebas automatizadas).
+- **La clave de respuestas nunca sale del servidor:** el cliente recibe solo
+  el contenido barajado y responde por posición visual; no recibe letras
+  canónicas, corrección ni la opción correcta de los 16 ítems.
 - **Sesiones firmadas (HMAC-SHA256)** con expiración: 8 horas en el gestor;
   la del estudiante queda ligada a su intento.
 - **Protección anti fuerza bruta:** solo los canjes fallidos consumen cuota
   (un aula entera compartiendo la misma IP del colegio no se bloquea).
+- **Acceso del gestor limitado:** ocho fallos por IP bloquean nuevos intentos
+  durante una ventana de 15 minutos.
 - **Sin puntaje ni retroalimentación** al terminar: es una prueba
   diagnóstica, no un juego.
 

@@ -66,3 +66,8 @@ export async function submitAttempt(): Promise<SubmitResponse> {
   const res = await fetch("/api/attempt/submit", { method: "POST" });
   return parseJson<SubmitResponse>(res);
 }
+
+export async function logoutAttempt(): Promise<void> {
+  const res = await fetch("/api/attempt/logout", { method: "POST" });
+  await parseJson<{ ok: true }>(res);
+}

@@ -21,7 +21,7 @@ export function useAutosave(attemptId: number) {
     await saveAnswer(job);
   }, []);
 
-  const { enqueue, pendingCount, isOnline } = useOfflineQueue<SaveAnswerRequest>({
+  const { enqueue, flush, pendingCount, isOnline } = useOfflineQueue<SaveAnswerRequest>({
     storageKey: `pdi_autoguardado_${attemptId}`,
     send,
   });
@@ -33,5 +33,5 @@ export function useAutosave(attemptId: number) {
     [enqueue],
   );
 
-  return { queueAnswer, pendingCount, isOnline };
+  return { queueAnswer, flushPending: flush, pendingCount, isOnline };
 }

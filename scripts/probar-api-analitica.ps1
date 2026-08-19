@@ -35,13 +35,21 @@ function Check($nombre, $condicion, $detalle = "") {
 # Clave documentada del instrumento (PLAN.md: "BDACCADBBDACCADB"). Se usa
 # aquí exactamente como en probar-api-estudiante.ps1: es un script de
 # prueba que simula estudiantes, no el cliente real, que nunca la recibe.
-$clave = @{ 1='B';2='D';3='A';4='C';5='C';6='A';7='D';8='B';9='B';10='D';11='A';12='C';13='C';14='A';15='D';16='B' }
-$opciones = @('A','B','C','D')
+$correctas = @{
+  1='Porque recibían más sol y el suelo perdía humedad con rapidez.'; 2='Porque la cobertura y el riego ayudaron a conservar mejor la humedad.'
+  3='Las plantas del extremo soleado podrían marchitarse antes que las demás.'; 4='El suelo conservaría mejor la humedad y disminuiría el riesgo de marchitez.'
+  5='Porque el agua acumulada y el camino deteriorado hicieron más lento el recorrido.'; 6='Porque anticiparon posibles dificultades y salieron de sus casas con mayor tiempo.'
+  7='Podrían repetirse acumulaciones de agua y nuevos retrasos durante el recorrido.'; 8='El agua podría evacuar mejor y reducirse su acumulación sobre el camino.'
+  9='La participación disminuyó cuando se eliminó el intercambio de ideas en parejas.'; 10='Porque se eliminó el espacio para comparar pistas antes de responder individualmente.'
+  11='Cada estudiante formulará primero una idea propia antes de compararla con otra.'; 12='Más estudiantes podrían explicar y justificar sus conclusiones utilizando pistas del texto.'
+  13='La lluvia arrastró tierra suelta desde la pendiente hasta el cauce del arroyo.'; 14='Parte de los residuos abandonados fue transportada por el agua hasta el arroyo.'
+  15='Disminuiría la cantidad de suelo arrastrado hacia el arroyo durante las lluvias.'; 16='Los plásticos podrían seguir llegando al arroyo y acumulándose en algunos sectores.'
+}
 
 function Elegir-Opcion($numero, $acierto) {
-  $correcta = $clave[[int]$numero]
+  $correcta = $correctas[[int]$numero]
   if ($acierto) { return $correcta }
-  return ($opciones | Where-Object { $_ -ne $correcta } | Get-Random)
+  return $null
 }
 
 # Curva de habilidad: reparte el cohorte entre 25% y 90% de probabilidad de
@@ -60,12 +68,15 @@ function Responder-Intento($session, $preguntas, $probabilidad) {
   $acumulado = 0
   foreach ($q in ($preguntas | Where-Object { $_.number -ge 1 })) {
     $acierto = (Get-Random -Minimum 0.0 -Maximum 1.0) -lt $probabilidad
-    $letra = Elegir-Opcion $q.number $acierto
-    $pos = [array]::IndexOf(($q.options | ForEach-Object { $_.letter }), $letra)
+    $contenido = Elegir-Opcion $q.number $acierto
+    if ($null -eq $contenido) {
+      $contenido = @($q.options | Where-Object { $_.content -ne $correctas[[int]$q.number] } | Get-Random)[0].content
+    }
+    $pos = [array]::IndexOf(($q.options | ForEach-Object { $_.content }), $contenido)
     $tiempoItem = Get-Random -Minimum 8000 -Maximum 45000
     $acumulado += $tiempoItem
     Invoke-RestMethod -Uri "$BaseUrl/api/attempt/answer" -Method Put `
-      -Body (@{ questionId = $q.id; selectedOption = $letra; displayedPosition = $pos
+      -Body (@{ questionId = $q.id; displayedPosition = $pos
                 timeSpentMs = $tiempoItem; elapsedMs = $acumulado } | ConvertTo-Json) `
       -ContentType "application/json" -WebSession $session | Out-Null
   }

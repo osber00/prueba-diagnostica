@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/Button";
 interface InstructionsScreenProps {
   label: string | null;
   onContinue: () => void;
+  onExit: () => void;
 }
 
-export function InstructionsScreen({ label, onContinue }: InstructionsScreenProps) {
+export function InstructionsScreen({ label, onContinue, onExit }: InstructionsScreenProps) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-8">
       <div className="space-y-6 text-center">
@@ -34,6 +35,9 @@ export function InstructionsScreen({ label, onContinue }: InstructionsScreenProp
         </ul>
 
         <Button onClick={onContinue}>Empezar con un ejemplo</Button>
+        <Button variant="secondary" onClick={onExit}>
+          Este no soy yo
+        </Button>
       </div>
     </main>
   );

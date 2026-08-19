@@ -210,21 +210,23 @@ studentRoutes.get("/", async (c) => {
       .all<AnswerRow>(),
   ]);
 
-  // Aquí se descarta `correctOption`: es el punto donde la clave deja de existir
-  // para el resto del sistema. Nada aguas abajo puede filtrarla.
+  // Aquí se descartan tanto `correctOption` como las letras canónicas. El
+  // cliente recibe solo contenido ordenado y responde por posición visual.
   const publicQuestions: PublicQuestion[] = questions.map((q) => ({
     id: q.id,
     textId: q.textId,
     number: q.number,
     inferenceType: q.inferenceType,
     stem: q.stem,
-    options: shuffleForAttempt(q.options, attempt.option_seed, q.id),
+    options: shuffleForAttempt(q.options, attempt.option_seed, q.id).map((option) => ({
+      content: option.content,
+    })),
   }));
 
   // Tampoco se envía `is_correct`: el estudiante no debe poder deducir su puntaje.
   const savedAnswers: SavedAnswer[] = answers.results.map((a) => ({
     questionId: a.question_id,
-    selectedOption: a.selected_option,
+    displayedPosition: a.displayed_position,
   }));
 
   return c.json<AttemptStateResponse>({
@@ -255,10 +257,10 @@ studentRoutes.put("/answer", async (c) => {
   if (!input.success) return c.json({ error: "Datos inválidos" }, 400);
 
   const attempt = await c.env.DB.prepare(
-    "SELECT status FROM attempts WHERE id = ?",
+    "SELECT status, option_seed FROM attempts WHERE id = ?",
   )
     .bind(attemptId)
-    .first<{ status: string }>();
+    .first<Pick<AttemptRow, "status" | "option_seed">>();
 
   if (!attempt) return c.json({ error: "El intento ya no existe" }, 404);
   if (attempt.status === "abandoned") {
@@ -269,11 +271,19 @@ studentRoutes.put("/answer", async (c) => {
     return c.json({ error: "La prueba ya fue enviada" }, 409);
   }
 
-  const key = await getAnswerKey(c.env.DB);
-  const entry = key.get(input.data.questionId);
-  if (!entry) return c.json({ error: "La pregunta no existe" }, 404);
+  const questions = await getQuestionsWithOptions(c.env.DB);
+  const question = questions.find((candidate) => candidate.id === input.data.questionId);
+  if (!question) return c.json({ error: "La pregunta no existe" }, 404);
 
-  const isCorrect = entry.correct === input.data.selectedOption ? 1 : 0;
+  const shuffledOptions = shuffleForAttempt(
+    question.options,
+    attempt.option_seed,
+    question.id,
+  );
+  const selectedOption = shuffledOptions[input.data.displayedPosition];
+  if (!selectedOption) return c.json({ error: "La opción no existe" }, 400);
+
+  const isCorrect = question.correctOption === selectedOption.letter ? 1 : 0;
   const timestamp = now();
 
   // UPSERT: el cliente puede reenviar la misma respuesta tras un fallo de red
@@ -294,7 +304,7 @@ studentRoutes.put("/answer", async (c) => {
     ).bind(
       attemptId,
       input.data.questionId,
-      input.data.selectedOption,
+      selectedOption.letter,
       input.data.displayedPosition,
       isCorrect,
       timestamp,
@@ -312,9 +322,16 @@ studentRoutes.put("/answer", async (c) => {
   return c.json<SaveAnswerResponse>({
     ok: true,
     savedAt: timestamp,
-    ...(entry.scored
+    ...(question.isScored
       ? {}
-      : { feedback: { isCorrect: isCorrect === 1, correctOption: entry.correct } }),
+      : {
+          feedback: {
+            isCorrect: isCorrect === 1,
+            correctPosition: shuffledOptions.findIndex(
+              (option) => option.letter === question.correctOption,
+            ),
+          },
+        }),
   });
 });
 
@@ -327,10 +344,12 @@ studentRoutes.post("/submit", async (c) => {
   if (attemptId === null) return c.json({ error: "Sesión no iniciada" }, 401);
 
   const attempt = await c.env.DB.prepare(
-    "SELECT id, access_code_id, status, elapsed_ms FROM attempts WHERE id = ?",
+    "SELECT id, access_code_id, status, started_at, elapsed_ms FROM attempts WHERE id = ?",
   )
     .bind(attemptId)
-    .first<Pick<AttemptRow, "id" | "access_code_id" | "status" | "elapsed_ms">>();
+    .first<
+      Pick<AttemptRow, "id" | "access_code_id" | "status" | "started_at" | "elapsed_ms">
+    >();
 
   if (!attempt) return c.json({ error: "El intento ya no existe" }, 404);
   if (attempt.status === "abandoned") {
@@ -357,16 +376,18 @@ studentRoutes.post("/submit", async (c) => {
 
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `UPDATE attempts
+       `UPDATE attempts
           SET status = 'completed', completed_at = ?, score_total = ?,
-              score_causal = ?, score_predictive = ?, last_seen_at = ?
-        WHERE id = ?`,
+              score_causal = ?, score_predictive = ?, last_seen_at = ?,
+              elapsed_ms = MAX(elapsed_ms, ?)
+         WHERE id = ?`,
     ).bind(
       timestamp,
       score.total,
       score.causal,
       score.predictive,
       timestamp,
+      timestamp - attempt.started_at,
       attemptId,
     ),
     c.env.DB.prepare("UPDATE access_codes SET status = 'used' WHERE id = ?").bind(

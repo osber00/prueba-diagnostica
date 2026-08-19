@@ -40,7 +40,7 @@ export function useOfflineQueue<T>({
 
   const entriesRef = useRef(entries);
   const sendRef = useRef(send);
-  const isFlushingRef = useRef(false);
+  const flushPromiseRef = useRef<Promise<boolean> | null>(null);
   const retryDelayRef = useRef(baseDelayMs);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -60,41 +60,63 @@ export function useOfflineQueue<T>({
     [storageKey],
   );
 
-  const flush = useCallback(async () => {
-    if (isFlushingRef.current) return;
-    if (Object.keys(entriesRef.current).length === 0) return;
+  const flush = useCallback((): Promise<boolean> => {
+    if (flushPromiseRef.current) return flushPromiseRef.current;
+    if (Object.keys(entriesRef.current).length === 0) return Promise.resolve(true);
 
-    isFlushingRef.current = true;
-    let anyFailed = false;
+    const operation = (async () => {
+      let anyFailed = false;
 
-    // Secuencial, no en paralelo: sobre una conexión rural débil, disparar
-    // varias peticiones a la vez solo compite por el mismo ancho de banda
-    // escaso y puede hacer que todas fallen en lugar de que una tenga éxito.
-    for (const key of Object.keys(entriesRef.current)) {
-      const entry = entriesRef.current[key];
-      if (!entry) continue;
+      // Secuencial, no en paralelo: sobre una conexión rural débil, disparar
+      // varias peticiones a la vez compite por el mismo ancho de banda.
+      while (!anyFailed && Object.keys(entriesRef.current).length > 0) {
+        for (const key of Object.keys(entriesRef.current)) {
+          const entry = entriesRef.current[key];
+          if (!entry) continue;
 
-      try {
-        await sendRef.current(entry.item);
-        const rest = { ...entriesRef.current };
-        delete rest[key];
-        persist(rest);
-      } catch {
-        anyFailed = true;
+          try {
+            await sendRef.current(entry.item);
+            // Si la respuesta cambió durante el envío, no se borra la nueva:
+            // la siguiente vuelta del bucle la enviará antes de terminar.
+            if (entriesRef.current[key] === entry) {
+              const rest = { ...entriesRef.current };
+              delete rest[key];
+              persist(rest);
+            }
+          } catch {
+            anyFailed = true;
+          }
+        }
       }
-    }
 
-    isFlushingRef.current = false;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (anyFailed) {
+        retryDelayRef.current = Math.min(retryDelayRef.current * 1.6, maxDelayMs);
+        timeoutRef.current = setTimeout(() => void flush(), retryDelayRef.current);
+      } else {
+        retryDelayRef.current = baseDelayMs;
+      }
 
-    if (anyFailed) {
-      retryDelayRef.current = Math.min(retryDelayRef.current * 1.6, maxDelayMs);
-      timeoutRef.current = setTimeout(() => void flush(), retryDelayRef.current);
-    } else {
-      retryDelayRef.current = baseDelayMs;
-    }
+      return !anyFailed && Object.keys(entriesRef.current).length === 0;
+    })().finally(() => {
+      flushPromiseRef.current = null;
+    });
+
+    flushPromiseRef.current = operation;
+    return operation;
   }, [persist, baseDelayMs, maxDelayMs]);
+
+  useEffect(() => {
+    // El intento se conoce después de cargar la sesión. Al cambiar la clave,
+    // recupera la cola correcta en lugar de conservar la inicial del intento 0.
+    const stored = readStorage<T>(storageKey);
+    entriesRef.current = stored;
+    setEntries(stored);
+    retryDelayRef.current = baseDelayMs;
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    void flush();
+  }, [storageKey, baseDelayMs, flush]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -135,6 +157,7 @@ export function useOfflineQueue<T>({
 
   return {
     enqueue,
+    flush,
     pendingCount: Object.keys(entries).length,
     isOnline,
   };

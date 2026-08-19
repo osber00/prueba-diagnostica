@@ -18,7 +18,7 @@ mediante 16 ítems de selección múltiple con única respuesta, distribuidos en
 | 4 | Flujo del estudiante | ✅ Completada |
 | 5 | Panel gestor | ✅ Completada |
 | 6 | Análisis, gráficos y exportación | ✅ Completada |
-| 7 | Despliegue y documentación | ⬜ Pendiente |
+| 7 | Despliegue y documentación | 🟡 En curso |
 
 Leyenda: ⬜ Pendiente · 🟡 En curso · ✅ Completada
 
@@ -101,7 +101,7 @@ Objetivo: backend completo, con calificación exclusivamente en el servidor.
 
 - [x] Sesiones firmadas con HMAC-SHA256 (WebCrypto, sin dependencias)
 - [x] Generación de códigos legibles `MAC-XXXX-XXXX` (alfabeto sin ambigüedades)
-- [x] Barajado determinista de opciones por semilla de intento
+- [x] Barajado determinista; el cliente responde por posición y nunca recibe letras canónicas
 - [x] `POST /api/attempt/redeem` — canje de código e inicio o reanudación
 - [x] `GET /api/attempt` — estado, textos, ítems (sin la clave)
 - [x] `PUT /api/attempt/answer` — autoguardado idempotente (UPSERT)
@@ -109,6 +109,7 @@ Objetivo: backend completo, con calificación exclusivamente en el servidor.
 - [x] `POST /api/attempt/logout` — salir sin enviar (móviles compartidos)
 - [x] Gestor: login, sesión revocable, códigos, anular, reiniciar, monitor, resultados
 - [x] Límite de intentos de canje
+- [x] Límite de intentos de acceso al panel gestor
 - [x] Registro de auditoría
 - [x] Suites automatizadas (`scripts/probar-api-*.ps1`)
 
@@ -211,6 +212,7 @@ Objetivo: experiencia completa de la prueba, resistente a cortes de red.
 - [x] Cronómetro visible sin corte
 - [x] `useAutosave` + `useOfflineQueue` con reintento y backoff exponencial
 - [x] Reanudación tras cierre del navegador o pérdida de señal
+- [x] Recuperación de la cola al conocer el ID real y espera obligatoria antes de enviar
 - [x] Pantalla de revisión (grid de 16 con estado) con aviso de pendientes
 - [x] Confirmación de envío y pantalla de celebración, sin puntaje
 
@@ -270,7 +272,7 @@ Objetivo: control de acceso y supervisión de la aplicación.
 - [x] Generación de códigos por lotes (cantidad, fase, nombres)
 - [x] Tabla de códigos con estado, revocación y reinicio de intento
 - [x] Hoja imprimible de códigos para repartir en clase
-- [x] Monitor en vivo (quién responde, en qué ítem, cuánto lleva)
+- [x] Monitor en vivo (quién responde, último ítem respondido, cuánto lleva)
 - [x] Cierre de sesión y expiración a 8 horas
 
 **Verificación cumplida:**
@@ -439,19 +441,25 @@ Evidencia en `scripts/resultados-01-desktop.png`, `resultados-02-tiempos-reales.
 
 ---
 
-## Fase 7 — Despliegue y documentación ⬜
+## Fase 7 — Despliegue y documentación 🟡
 
 Objetivo: aplicación en producción y guía reproducible.
 
 - [x] `README.md` con guía paso a paso
-- [ ] Creación de la base D1 y aplicación de migraciones remotas
-- [ ] Configuración de secrets (`ADMIN_MASTER_CODE`, `SESSION_SECRET`)
-- [ ] Despliegue del Worker
+- [x] Creación de la base D1 y aplicación de migraciones remotas
+- [x] Configuración de secrets (`ADMIN_MASTER_CODE`, `SESSION_SECRET`)
+- [x] Despliegue del Worker
 - [ ] Prueba real desde datos móviles
 - [x] Protocolo de aplicación para el docente
 
 **Verificación:** un estudiante completa la prueba desde un móvil con datos móviles
 y el resultado aparece en el panel.
+
+**Producción:** <https://prueba-inferencial-macajan.osber00.workers.dev>
+
+**Verificado:** health remoto conectado con 16 ítems, integridad del instrumento
+en D1 remota, carga pública de la SPA y acceso autenticado al panel gestor.
+Solo falta la prueba operativa desde un teléfono físico usando datos móviles.
 
 ---
 
