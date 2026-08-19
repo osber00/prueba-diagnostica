@@ -83,15 +83,15 @@ Objetivo: instrumento completo en D1, con la clave fuera del bundle del cliente.
 | Claves sin opción existente | 0 |
 | Opciones duplicadas | 0 |
 | Textos sin 4 ítems | 0 |
-| **Clave concatenada** | **`BDACCADBBDACCADB`** ✔ coincide |
+| **Clave concatenada vigente (v2)** | **`CBADBCDACABDACBD`** ✔ coincide |
 
 `/api/health` responde `{"database":"conectada","items":16}`.
 
 > Hallazgo: D1 limita el número de términos en un `SELECT` compuesto. El script
 > de validación usa subconsultas escalares en lugar de `UNION ALL` encadenado.
 >
-> Registrado en la migración: el ítem 11 lleva una nota `rationale` marcada como
-> REVISAR, para vigilar su índice de discriminación en la Fase 6.
+> La versión 2 conserva 16 ítems equilibrados y racionales separados de la vista
+> del estudiante. Los intentos iniciados con la versión 1 mantienen su contenido.
 
 ---
 
@@ -510,11 +510,11 @@ npx wrangler deploy
 
 | Riesgo | Mitigación |
 |---|---|
-| Patrón regular de la clave (B-D-A-C) | Aleatorización de opciones por estudiante |
+| Sesgo por posición de opciones | Aleatorización determinista por estudiante |
 | Conectividad rural intermitente | Autoguardado, cola offline y reanudación |
 | Códigos compartidos | Un código = un intento; monitor en vivo |
 | Muestra pequeña (n=37) | Advertencia explícita en las métricas psicométricas |
-| Ítem 11 débil | Se mide su discriminación real para decidir con datos |
+| Mezcla de versiones del instrumento | Cada intento queda ligado a su versión y la analítica usa la vigente |
 
 ---
 
@@ -523,7 +523,7 @@ npx wrangler deploy
 | Fase | Nota |
 |---|---|
 | 0 | Andamiaje verificado. `/api/health` responde y el binding D1 funciona. |
-| 1 | Instrumento sembrado. Clave `BDACCADBBDACCADB` confirmada por consulta. |
+| 1 | Instrumento v1 preservado y versión 2 sembrada. Clave vigente `CBADBCDACABDACBD` confirmada por consulta. |
 | 2 | Backend completo. 46 comprobaciones automatizadas en verde. Corregido el bloqueo por IP compartida. |
 | 3 | Identidad visual propia (paleta Macaján + mascota tucán) tras corregir un parecido no intencional con otra app. Backend re-verificado sin regresiones. |
 | 4 | Flujo del estudiante completo, probado de extremo a extremo en navegador real: reanudación tras recarga y resiliencia offline verificadas con la red realmente desconectada, no simuladas. Corregido un bug real de cursor en el campo de código. 50 comprobaciones automatizadas en verde. Build de producción: 84.9 KB gzip. |

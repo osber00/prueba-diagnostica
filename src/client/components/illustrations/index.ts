@@ -4,6 +4,10 @@ import { HuertaIllustration } from "./HuertaIllustration";
 import { TransporteIllustration } from "./TransporteIllustration";
 import { LecturaIllustration } from "./LecturaIllustration";
 import { ArroyoIllustration } from "./ArroyoIllustration";
+import { TanqueHuertaIllustration } from "./TanqueHuertaIllustration";
+import { GeneradorIllustration } from "./GeneradorIllustration";
+import { DosCaminosIllustration } from "./DosCaminosIllustration";
+import { MangosIllustration } from "./MangosIllustration";
 
 export { Tucan } from "./Tucan";
 export { CalentamientoIllustration } from "./CalentamientoIllustration";
@@ -11,6 +15,10 @@ export { HuertaIllustration } from "./HuertaIllustration";
 export { TransporteIllustration } from "./TransporteIllustration";
 export { LecturaIllustration } from "./LecturaIllustration";
 export { ArroyoIllustration } from "./ArroyoIllustration";
+export { TanqueHuertaIllustration } from "./TanqueHuertaIllustration";
+export { GeneradorIllustration } from "./GeneradorIllustration";
+export { DosCaminosIllustration } from "./DosCaminosIllustration";
+export { MangosIllustration } from "./MangosIllustration";
 
 interface IllustrationProps {
   className?: string;
@@ -29,6 +37,10 @@ export const ILLUSTRATIONS: Record<string, ComponentType<IllustrationProps>> = {
   transporte: TransporteIllustration,
   lectura: LecturaIllustration,
   arroyo: ArroyoIllustration,
+  "tanque-huerta": TanqueHuertaIllustration,
+  generador: GeneradorIllustration,
+  "dos-caminos": DosCaminosIllustration,
+  mangos: MangosIllustration,
 };
 
 /** Ilustración por clave, con reserva silenciosa si la clave no existe. */

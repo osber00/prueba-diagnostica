@@ -78,7 +78,7 @@ CREATE TABLE attempts (
   status          TEXT    NOT NULL DEFAULT 'in_progress'
                   CHECK (status IN ('in_progress', 'completed', 'abandoned')),
   -- Semilla del barajado determinista de opciones.
-  -- Neutraliza el patrón regular de la clave (B-D-A-C) sin alterar el instrumento.
+   -- Neutraliza pistas y sesgos de posición sin alterar el instrumento.
   option_seed     INTEGER NOT NULL,
   started_at      INTEGER NOT NULL,
   last_seen_at    INTEGER NOT NULL,

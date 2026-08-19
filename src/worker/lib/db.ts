@@ -6,6 +6,7 @@ import type {
   Phase,
   PublicText,
 } from "@shared/types";
+import { ACTIVE_INSTRUMENT_VERSION } from "@shared/types";
 
 /* ===========================================================================
    Filas de D1, con los nombres tal como están en el esquema SQL.
@@ -63,6 +64,7 @@ export interface AttemptRow {
   score_causal: number | null;
   score_predictive: number | null;
   user_agent: string | null;
+  instrument_version: number;
 }
 
 export interface AnswerRow {
@@ -99,13 +101,15 @@ export interface QuestionWithOptions {
    =========================================================================== */
 
 /** Textos de lectura, en orden. Incluye el de calentamiento (order_index = 0). */
-export async function getTexts(db: D1Database): Promise<PublicText[]> {
+export async function getTexts(db: D1Database, instrumentVersion: number): Promise<PublicText[]> {
   const { results } = await db
     .prepare(
-      `SELECT id, order_index, title, body, genre, illustration_key
+      `SELECT id, display_order_index AS order_index, title, body, genre, illustration_key
          FROM texts
-        ORDER BY order_index`,
+        WHERE instrument_version = ?
+        ORDER BY display_order_index`,
     )
+    .bind(instrumentVersion)
     .all<TextRow>();
 
   return results.map(toPublicText);
@@ -131,18 +135,21 @@ export function toPublicText(row: TextRow): PublicText {
  */
 export async function getQuestionsWithOptions(
   db: D1Database,
+  instrumentVersion: number,
 ): Promise<QuestionWithOptions[]> {
   const batch = await db.batch([
     db.prepare(
-      `SELECT id, text_id, number, inference_type, stem, correct_option, is_scored, rationale
+      `SELECT id, text_id, display_number AS number, inference_type, stem, correct_option, is_scored, rationale
          FROM questions
-        ORDER BY number`,
-    ),
+        WHERE instrument_version = ?
+        ORDER BY display_number`,
+    ).bind(instrumentVersion),
     db.prepare(
       `SELECT id, question_id, letter, content
          FROM options
+        WHERE question_id IN (SELECT id FROM questions WHERE instrument_version = ?)
         ORDER BY question_id, letter`,
-    ),
+    ).bind(instrumentVersion),
   ]);
 
   const questionRows = (batch[0]?.results ?? []) as unknown as QuestionRow[];
@@ -176,11 +183,15 @@ export async function getQuestionsWithOptions(
  */
 export async function getAnswerKey(
   db: D1Database,
+  instrumentVersion: number,
 ): Promise<Map<number, { correct: OptionLetter; type: InferenceType; scored: boolean }>> {
   const { results } = await db
     .prepare(
-      `SELECT id, correct_option, inference_type, is_scored FROM questions`,
+      `SELECT id, correct_option, inference_type, is_scored
+         FROM questions
+        WHERE instrument_version = ?`,
     )
+    .bind(instrumentVersion)
     .all<Pick<QuestionRow, "id" | "correct_option" | "inference_type" | "is_scored">>();
 
   return new Map(
@@ -198,7 +209,10 @@ export async function getAnswerKey(
 /** Conteo de ítems calificables. Usado por la sonda de salud. */
 export async function countScoredQuestions(db: D1Database): Promise<number> {
   const row = await db
-    .prepare("SELECT COUNT(*) AS total FROM questions WHERE is_scored = 1")
+    .prepare(
+      "SELECT COUNT(*) AS total FROM questions WHERE is_scored = 1 AND instrument_version = ?",
+    )
+    .bind(ACTIVE_INSTRUMENT_VERSION)
     .first<{ total: number }>();
 
   return row?.total ?? 0;

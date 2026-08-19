@@ -14,7 +14,11 @@ import type {
   PerformanceBandCount,
   ResultRow,
 } from "@shared/types";
-import { PERFORMANCE_BANDS, TOTAL_ITEMS } from "@shared/types";
+import {
+  ACTIVE_INSTRUMENT_VERSION,
+  PERFORMANCE_BANDS,
+  TOTAL_ITEMS,
+} from "@shared/types";
 import { now } from "../lib/db";
 import { generateBatchId, generateCodes } from "../lib/codes";
 import { sha256Hex, timingSafeEqual } from "../lib/crypto";
@@ -275,7 +279,7 @@ adminRoutes.get("/live", async (c) => {
              (SELECT COUNT(*) FROM answers ans
                JOIN questions q ON q.id = ans.question_id
               WHERE ans.attempt_id = a.id AND q.is_scored = 1) AS answered,
-             (SELECT q.number FROM answers ans
+             (SELECT q.display_number FROM answers ans
                JOIN questions q ON q.id = ans.question_id
               WHERE ans.attempt_id = a.id AND q.is_scored = 1
               ORDER BY ans.answered_at DESC LIMIT 1) AS last_question_number
@@ -362,23 +366,24 @@ adminRoutes.get("/analytics", async (c) => {
               a.elapsed_ms, a.started_at, a.completed_at
          FROM attempts a
          JOIN access_codes ac ON ac.id = a.access_code_id
-        WHERE a.status = 'completed' AND ac.phase = ?
-        ORDER BY a.completed_at DESC`,
+         WHERE a.status = 'completed' AND ac.phase = ? AND a.instrument_version = ?
+         ORDER BY a.completed_at DESC`,
     )
-      .bind(phase)
+      .bind(phase, ACTIVE_INSTRUMENT_VERSION)
       .all<AnalyticsAttemptRow>(),
     c.env.DB.prepare(
-      `SELECT ans.attempt_id, q.number AS question_number, q.inference_type,
+      `SELECT ans.attempt_id, q.display_number AS question_number, q.inference_type,
               q.text_id, q.correct_option, ans.selected_option, ans.is_correct,
               ans.displayed_position, ans.time_spent_ms, ans.revision_count
          FROM answers ans
          JOIN questions q ON q.id = ans.question_id
          JOIN attempts a ON a.id = ans.attempt_id
          JOIN access_codes ac ON ac.id = a.access_code_id
-        WHERE a.status = 'completed' AND ac.phase = ? AND q.is_scored = 1
-        ORDER BY ans.attempt_id, q.number`,
+         WHERE a.status = 'completed' AND ac.phase = ? AND q.is_scored = 1
+           AND a.instrument_version = ?
+         ORDER BY ans.attempt_id, q.display_number`,
     )
-      .bind(phase)
+      .bind(phase, ACTIVE_INSTRUMENT_VERSION)
       .all<AnalyticsAnswerRow>(),
   ]);
 
@@ -461,6 +466,7 @@ adminRoutes.get("/analytics", async (c) => {
   }));
 
   return c.json<AnalyticsResponse>({
+    instrumentVersion: ACTIVE_INSTRUMENT_VERSION,
     phase,
     n: attempts.length,
     attempts,
@@ -483,9 +489,10 @@ adminRoutes.get("/analytics/paired", async (c) => {
             a.elapsed_ms, a.completed_at
        FROM attempts a
        JOIN access_codes ac ON ac.id = a.access_code_id
-      WHERE a.status = 'completed' AND ac.label IS NOT NULL
-      ORDER BY a.completed_at DESC`,
-  ).all<{
+       WHERE a.status = 'completed' AND ac.label IS NOT NULL
+         AND a.instrument_version = ?
+       ORDER BY a.completed_at DESC`,
+  ).bind(ACTIVE_INSTRUMENT_VERSION).all<{
     label: string;
     phase: "pretest" | "postest";
     score_total: number;

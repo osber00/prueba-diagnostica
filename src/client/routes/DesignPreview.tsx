@@ -94,11 +94,11 @@ export function DesignPreview() {
         </div>
       </section>
 
-      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="La huerta escolar">
+      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="El tanque de la huerta">
         <p className="leading-relaxed text-ink-700">
-          Durante varias semanas, un grupo de estudiantes de noveno estuvo
-          encargado de cuidar la huerta escolar. Al comienzo observaron que
-          algunas plantas de tomate crecían menos que las demás...
+          En la huerta escolar se utiliza un tanque que se llena completamente
+          cada lunes. Durante varias semanas, cuando había seis eras sembradas y
+          se regaban una vez al día, el agua alcanzaba normalmente hasta el viernes...
         </p>
       </Sheet>
     </main>

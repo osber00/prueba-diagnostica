@@ -128,7 +128,14 @@ export function ResultsPage() {
     <div className="space-y-8">
       <section className="space-y-4 rounded-card border-2 border-ink-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-extrabold text-ink-900">Resultados</h2>
+          <div>
+            <h2 className="text-base font-extrabold text-ink-900">Resultados</h2>
+            {analytics && (
+              <p className="text-xs text-ink-700">
+                Instrumento vigente, versión {analytics.instrumentVersion}
+              </p>
+            )}
+          </div>
           <div role="group" aria-label="Filtrar resultados por fase" className="flex gap-1.5">
             {(["pretest", "postest"] as const).map((p) => (
               <button

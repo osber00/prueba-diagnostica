@@ -1,10 +1,9 @@
 /**
  * Barajado determinista de opciones.
  *
- * Motivo: la clave del instrumento sigue el patrón regular B-D-A-C repetido
- * cuatro veces. Un estudiante que lo detecte puede acertar sin inferir, lo que
- * invalidaría la medición. Barajar el orden por estudiante elimina el patrón
- * sin modificar el instrumento validado.
+ * Motivo: variar la posición visual de la respuesta correcta evita que el
+ * orden de las opciones introduzca una pista o un sesgo ajeno a la comprensión
+ * lectora. El contenido canónico del instrumento no se modifica.
  *
  * El barajado es determinista (semilla del intento + id del ítem) para que:
  *   1. El estudiante vea siempre el mismo orden si recarga o retoma la prueba.

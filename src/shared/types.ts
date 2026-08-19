@@ -28,6 +28,9 @@ export const TOTAL_ITEMS = 16;
 /** Ítems por cada dimensión inferencial. */
 export const ITEMS_PER_DIMENSION = 8;
 
+/** Versión que reciben los intentos iniciados desde esta publicación. */
+export const ACTIVE_INSTRUMENT_VERSION = 2;
+
 /** Niveles de desempeño usados en el informe de resultados. */
 export const PERFORMANCE_BANDS = [
   { key: "bajo", label: "Bajo", min: 0, max: 6 },
@@ -248,6 +251,7 @@ export interface PerformanceBandCount {
 
 /** Respuesta de `GET /api/admin/analytics`. */
 export interface AnalyticsResponse {
+  instrumentVersion: number;
   phase: Phase;
   /** Intentos completados en la fase (tamaño de `attempts`). */
   n: number;

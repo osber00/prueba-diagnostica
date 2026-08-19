@@ -32,18 +32,18 @@ function Check($nombre, $condicion, $detalle = "") {
   }
 }
 
-# Clave documentada del instrumento (PLAN.md: "BDACCADBBDACCADB"). Se usa
+# Clave de la versión 2 del instrumento ("CBADBCDACABDACBD"). Se usa
 # aquí exactamente como en probar-api-estudiante.ps1: es un script de
 # prueba que simula estudiantes, no el cliente real, que nunca la recibe.
 $correctas = @{
-  1='Porque recibían más sol y el suelo perdía humedad con rapidez.'; 2='Porque la cobertura y el riego ayudaron a conservar mejor la humedad.'
-  3='Las plantas del extremo soleado podrían marchitarse antes que las demás.'; 4='El suelo conservaría mejor la humedad y disminuiría el riesgo de marchitez.'
-  5='Porque el agua acumulada y el camino deteriorado hicieron más lento el recorrido.'; 6='Porque anticiparon posibles dificultades y salieron de sus casas con mayor tiempo.'
-  7='Podrían repetirse acumulaciones de agua y nuevos retrasos durante el recorrido.'; 8='El agua podría evacuar mejor y reducirse su acumulación sobre el camino.'
-  9='La participación disminuyó cuando se eliminó el intercambio de ideas en parejas.'; 10='Porque se eliminó el espacio para comparar pistas antes de responder individualmente.'
-  11='Cada estudiante formulará primero una idea propia antes de compararla con otra.'; 12='Más estudiantes podrían explicar y justificar sus conclusiones utilizando pistas del texto.'
-  13='La lluvia arrastró tierra suelta desde la pendiente hasta el cauce del arroyo.'; 14='Parte de los residuos abandonados fue transportada por el agua hasta el arroyo.'
-  15='Disminuiría la cantidad de suelo arrastrado hacia el arroyo durante las lluvias.'; 16='Los plásticos podrían seguir llegando al arroyo y acumulándose en algunos sectores.'
+  1='Las nuevas eras y el doble riego aumentaron la cantidad total de agua utilizada.'; 2='El menor riego y las condiciones menos calurosas redujeron el consumo de agua.'
+  3='El agua probablemente se agotará antes del miércoles si se mantienen los dos riegos diarios.'; 4='El agua debería durar más que con dos riegos, aunque no puede precisarse hasta qué día.'
+  5='La mayor cantidad de equipos conectados hizo que el generador consumiera combustible más rápidamente.'; 6='Sin realizar reparaciones, el equipo recuperó casi su duración habitual al reducir los aparatos conectados.'
+  7='Probablemente durará más que el sábado, aunque podría no alcanzar la duración del primer ensayo.'; 8='El combustible podría agotarse antes de las dos horas y cuarenta minutos registradas anteriormente.'
+  9='El agua acumulada en la zona arcillosa dificultó el paso y eliminó la ventaja de la ruta corta.'; 10='El terreno continuaba afectado y las huellas del tractor aumentaron la dificultad para transitarlo.'
+  11='Podría tardar algo más que en seco, pero es probable que el retraso sea menor que antes.'; 12='El tiempo de recorrido por El Bajo probablemente aumentará nuevamente respecto al recorrido normal.'
+  13='La cercanía de los bananos maduros estuvo relacionada con el cambio más rápido de los mangos.'; 14='Porque al retirar la condición diferenciadora desapareció también la diferencia observada entre las cajas.'
+  15='Los mangos de la caja C probablemente madurarán más rápido que aquellos sin bananos maduros cerca.'; 16='Podría existir cierta aceleración, aunque probablemente menor que con una exposición durante todo el periodo.'
 }
 
 function Elegir-Opcion($numero, $acierto) {

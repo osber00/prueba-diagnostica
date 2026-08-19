@@ -6,6 +6,7 @@ import type {
   SaveAnswerResponse,
   SavedAnswer,
 } from "@shared/types";
+import { ACTIVE_INSTRUMENT_VERSION } from "@shared/types";
 import { redeemRequestSchema, saveAnswerRequestSchema } from "@shared/schemas";
 import {
   getAnswerKey,
@@ -100,7 +101,8 @@ studentRoutes.post("/redeem", async (c) => {
 
   const existing = await c.env.DB.prepare(
     `SELECT id, access_code_id, status, option_seed, started_at, last_seen_at,
-            completed_at, elapsed_ms, score_total, score_causal, score_predictive, user_agent
+             completed_at, elapsed_ms, score_total, score_causal, score_predictive, user_agent,
+             instrument_version
        FROM attempts WHERE access_code_id = ?`,
   )
     .bind(code.id)
@@ -130,11 +132,19 @@ studentRoutes.post("/redeem", async (c) => {
       .run();
   } else {
     const inserted = await c.env.DB.prepare(
-      `INSERT INTO attempts (access_code_id, status, option_seed, started_at, last_seen_at, user_agent)
-       VALUES (?, 'in_progress', ?, ?, ?, ?)
+      `INSERT INTO attempts (access_code_id, status, option_seed, started_at, last_seen_at,
+                             user_agent, instrument_version)
+       VALUES (?, 'in_progress', ?, ?, ?, ?, ?)
        RETURNING id`,
     )
-      .bind(code.id, createAttemptSeed(), timestamp, timestamp, userAgent)
+      .bind(
+        code.id,
+        createAttemptSeed(),
+        timestamp,
+        timestamp,
+        userAgent,
+        ACTIVE_INSTRUMENT_VERSION,
+      )
       .first<{ id: number }>();
 
     if (!inserted) {
@@ -177,7 +187,8 @@ studentRoutes.get("/", async (c) => {
 
   const attempt = await c.env.DB.prepare(
     `SELECT id, access_code_id, status, option_seed, started_at, last_seen_at,
-            completed_at, elapsed_ms, score_total, score_causal, score_predictive, user_agent
+             completed_at, elapsed_ms, score_total, score_causal, score_predictive, user_agent,
+             instrument_version
        FROM attempts WHERE id = ?`,
   )
     .bind(attemptId)
@@ -199,8 +210,8 @@ studentRoutes.get("/", async (c) => {
     .first<{ label: string | null; phase: "pretest" | "postest" }>();
 
   const [texts, questions, answers] = await Promise.all([
-    getTexts(c.env.DB),
-    getQuestionsWithOptions(c.env.DB),
+    getTexts(c.env.DB, attempt.instrument_version),
+    getQuestionsWithOptions(c.env.DB, attempt.instrument_version),
     c.env.DB.prepare(
       `SELECT id, attempt_id, question_id, selected_option, displayed_position,
               is_correct, answered_at, time_spent_ms, revision_count
@@ -257,10 +268,10 @@ studentRoutes.put("/answer", async (c) => {
   if (!input.success) return c.json({ error: "Datos inválidos" }, 400);
 
   const attempt = await c.env.DB.prepare(
-    "SELECT status, option_seed FROM attempts WHERE id = ?",
+    "SELECT status, option_seed, instrument_version FROM attempts WHERE id = ?",
   )
     .bind(attemptId)
-    .first<Pick<AttemptRow, "status" | "option_seed">>();
+    .first<Pick<AttemptRow, "status" | "option_seed" | "instrument_version">>();
 
   if (!attempt) return c.json({ error: "El intento ya no existe" }, 404);
   if (attempt.status === "abandoned") {
@@ -271,7 +282,7 @@ studentRoutes.put("/answer", async (c) => {
     return c.json({ error: "La prueba ya fue enviada" }, 409);
   }
 
-  const questions = await getQuestionsWithOptions(c.env.DB);
+  const questions = await getQuestionsWithOptions(c.env.DB, attempt.instrument_version);
   const question = questions.find((candidate) => candidate.id === input.data.questionId);
   if (!question) return c.json({ error: "La pregunta no existe" }, 404);
 
@@ -344,11 +355,15 @@ studentRoutes.post("/submit", async (c) => {
   if (attemptId === null) return c.json({ error: "Sesión no iniciada" }, 401);
 
   const attempt = await c.env.DB.prepare(
-    "SELECT id, access_code_id, status, started_at, elapsed_ms FROM attempts WHERE id = ?",
+    `SELECT id, access_code_id, status, started_at, elapsed_ms, instrument_version
+       FROM attempts WHERE id = ?`,
   )
     .bind(attemptId)
     .first<
-      Pick<AttemptRow, "id" | "access_code_id" | "status" | "started_at" | "elapsed_ms">
+      Pick<
+        AttemptRow,
+        "id" | "access_code_id" | "status" | "started_at" | "elapsed_ms" | "instrument_version"
+      >
     >();
 
   if (!attempt) return c.json({ error: "El intento ya no existe" }, 404);
@@ -363,7 +378,7 @@ studentRoutes.post("/submit", async (c) => {
   }
 
   const [key, answers] = await Promise.all([
-    getAnswerKey(c.env.DB),
+    getAnswerKey(c.env.DB, attempt.instrument_version),
     c.env.DB.prepare(
       "SELECT question_id, selected_option FROM answers WHERE attempt_id = ?",
     )
