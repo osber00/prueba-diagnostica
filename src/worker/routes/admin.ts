@@ -15,10 +15,10 @@ import type {
   ResultRow,
 } from "@shared/types";
 import {
-  ACTIVE_INSTRUMENT_VERSION,
   PERFORMANCE_BANDS,
   TOTAL_ITEMS,
 } from "@shared/types";
+import { getInstrumentVersion } from "@shared/instruments";
 import { now } from "../lib/db";
 import { generateBatchId, generateCodes } from "../lib/codes";
 import { sha256Hex, timingSafeEqual } from "../lib/crypto";
@@ -359,6 +359,7 @@ adminRoutes.get("/analytics", async (c) => {
     return c.json({ error: "Falta el parámetro phase (pretest o postest)" }, 400);
   }
 
+  const instrumentVersion = getInstrumentVersion(phase);
   const [attemptRows, answerRows] = await Promise.all([
     c.env.DB.prepare(
       `SELECT a.id AS attempt_id, ac.code, ac.label,
@@ -369,7 +370,7 @@ adminRoutes.get("/analytics", async (c) => {
          WHERE a.status = 'completed' AND ac.phase = ? AND a.instrument_version = ?
          ORDER BY a.completed_at DESC`,
     )
-      .bind(phase, ACTIVE_INSTRUMENT_VERSION)
+      .bind(phase, instrumentVersion)
       .all<AnalyticsAttemptRow>(),
     c.env.DB.prepare(
       `SELECT ans.attempt_id, q.display_number AS question_number, q.inference_type,
@@ -383,7 +384,7 @@ adminRoutes.get("/analytics", async (c) => {
            AND a.instrument_version = ?
          ORDER BY ans.attempt_id, q.display_number`,
     )
-      .bind(phase, ACTIVE_INSTRUMENT_VERSION)
+      .bind(phase, instrumentVersion)
       .all<AnalyticsAnswerRow>(),
   ]);
 
@@ -437,7 +438,7 @@ adminRoutes.get("/analytics", async (c) => {
 
   // La psicometría (dificultad, discriminación, KR-20) exige que todos los
   // intentos comparen el mismo conjunto de ítems. Un intento "completado"
-  // con respuestas de menos (el envío no exige responder los 16) rompería
+  // histórico con respuestas de menos rompería
   // esa comparación: sesgaría la dificultad de los ítems que solo alcanzó a
   // ver el grupo con más tiempo, y descuadraría a `k` frente a la varianza
   // de puntajes usada por KR-20. Se excluyen aquí mediante supresión por
@@ -466,7 +467,7 @@ adminRoutes.get("/analytics", async (c) => {
   }));
 
   return c.json<AnalyticsResponse>({
-    instrumentVersion: ACTIVE_INSTRUMENT_VERSION,
+    instrumentVersion,
     phase,
     n: attempts.length,
     attempts,
@@ -490,9 +491,10 @@ adminRoutes.get("/analytics/paired", async (c) => {
        FROM attempts a
        JOIN access_codes ac ON ac.id = a.access_code_id
        WHERE a.status = 'completed' AND ac.label IS NOT NULL
-         AND a.instrument_version = ?
-       ORDER BY a.completed_at DESC`,
-  ).bind(ACTIVE_INSTRUMENT_VERSION).all<{
+          AND ((ac.phase = 'pretest' AND a.instrument_version = ?)
+            OR (ac.phase = 'postest' AND a.instrument_version = ?))
+        ORDER BY a.completed_at DESC`,
+  ).bind(getInstrumentVersion("pretest"), getInstrumentVersion("postest")).all<{
     label: string;
     phase: "pretest" | "postest";
     score_total: number;

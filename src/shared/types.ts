@@ -28,9 +28,6 @@ export const TOTAL_ITEMS = 16;
 /** Ítems por cada dimensión inferencial. */
 export const ITEMS_PER_DIMENSION = 8;
 
-/** Versión que reciben los intentos iniciados desde esta publicación. */
-export const ACTIVE_INSTRUMENT_VERSION = 2;
-
 /** Niveles de desempeño usados en el informe de resultados. */
 export const PERFORMANCE_BANDS = [
   { key: "bajo", label: "Bajo", min: 0, max: 6 },
@@ -46,6 +43,7 @@ export interface HealthResponse {
   status: "ok";
   database: "conectada" | "sin migrar" | "no disponible";
   items: number;
+  instruments: Record<Phase, { version: number; items: number }>;
   version: string;
 }
 

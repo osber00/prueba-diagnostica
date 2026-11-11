@@ -8,6 +8,7 @@ import { TanqueHuertaIllustration } from "./TanqueHuertaIllustration";
 import { GeneradorIllustration } from "./GeneradorIllustration";
 import { DosCaminosIllustration } from "./DosCaminosIllustration";
 import { MangosIllustration } from "./MangosIllustration";
+import { GuiaLectura } from "./GuiaLectura";
 
 export { GuiaLectura } from "./GuiaLectura";
 export { CalentamientoIllustration } from "./CalentamientoIllustration";
@@ -41,6 +42,7 @@ export const ILLUSTRATIONS: Record<string, ComponentType<IllustrationProps>> = {
   generador: GeneradorIllustration,
   "dos-caminos": DosCaminosIllustration,
   mangos: MangosIllustration,
+  postest: GuiaLectura,
 };
 
 /** Ilustración por clave, con reserva silenciosa si la clave no existe. */

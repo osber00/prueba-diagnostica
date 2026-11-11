@@ -1,14 +1,16 @@
 import type { ReactNode } from "react";
+import type { Phase } from "@shared/types";
 import { GuiaLectura } from "@/components/illustrations";
 import { Button } from "@/components/ui/Button";
 
 interface InstructionsScreenProps {
   label: string | null;
+  phase: Phase;
   onContinue: () => void;
   onExit: () => void;
 }
 
-export function InstructionsScreen({ label, onContinue, onExit }: InstructionsScreenProps) {
+export function InstructionsScreen({ label, phase, onContinue, onExit }: InstructionsScreenProps) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-8">
       <div className="space-y-6 text-center">
@@ -19,7 +21,8 @@ export function InstructionsScreen({ label, onContinue, onExit }: InstructionsSc
             {label ? `¡Hola, ${label}!` : "¡Hola!"}
           </h1>
           <p className="text-sm text-ink-500">
-            Antes de empezar, lee esto con calma.
+            {phase === "postest" ? "Prueba final — Postest" : "Prueba inicial — Pretest"}.
+            {" "}Antes de empezar, lee esto con calma.
           </p>
         </div>
 
@@ -31,7 +34,11 @@ export function InstructionsScreen({ label, onContinue, onExit }: InstructionsSc
           </Item>
           <Item>Puedes volver a leer el texto en cualquier momento mientras respondes.</Item>
           <Item>Puedes avanzar y retroceder, y cambiar una respuesta antes de enviarla.</Item>
-          <Item>No hay tiempo límite. Tómate el tiempo que necesites.</Item>
+          <Item>
+            {phase === "postest"
+              ? "La duración estimada es de 45 minutos. El cronómetro registra el tiempo, pero no cierra la prueba automáticamente."
+              : "No hay tiempo límite. Tómate el tiempo que necesites."}
+          </Item>
         </ul>
 
         <Button onClick={onContinue}>Empezar con un ejemplo</Button>

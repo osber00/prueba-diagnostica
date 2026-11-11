@@ -35,7 +35,7 @@ function Check($nombre, $condicion, $detalle = "") {
 # Clave de la versión 2 del instrumento ("CBADBCDACABDACBD"). Se usa
 # aquí exactamente como en probar-api-estudiante.ps1: es un script de
 # prueba que simula estudiantes, no el cliente real, que nunca la recibe.
-$correctas = @{
+$correctasPretest = @{
   1='Las nuevas eras y el doble riego aumentaron la cantidad total de agua utilizada.'; 2='El menor riego y las condiciones menos calurosas redujeron el consumo de agua.'
   3='El agua probablemente se agotará antes del miércoles si se mantienen los dos riegos diarios.'; 4='El agua debería durar más que con dos riegos, aunque no puede precisarse hasta qué día.'
   5='La mayor cantidad de equipos conectados hizo que el generador consumiera combustible más rápidamente.'; 6='Sin realizar reparaciones, el equipo recuperó casi su duración habitual al reducir los aparatos conectados.'
@@ -46,7 +46,26 @@ $correctas = @{
   15='Los mangos de la caja C probablemente madurarán más rápido que aquellos sin bananos maduros cerca.'; 16='Podría existir cierta aceleración, aunque probablemente menor que con una exposición durante todo el periodo.'
 }
 
-function Elegir-Opcion($numero, $acierto) {
+$correctasPostest = @{
+  1='Las condiciones de mayor calor y disponibilidad reducida de agua afectaron a las gallinas del corral.'
+  2='Al disminuir el calor, mejoraron la disponibilidad de agua y la producción sin cambiar el alimento.'
+  3='Podría volver a faltar agua durante el día y disminuir nuevamente la cantidad de huevos obtenidos.'
+  4='Podrían mantenerse condiciones semejantes a las obtenidas antes con la malla si realmente disminuye el calentamiento.'
+  5='La humedad cercana al piso alcanzaba los sacos almacenados que permanecían en contacto directo con esa superficie.'
+  6='Al aislar los sacos del piso mediante las plataformas, el problema no reapareció pese a nuevas lluvias.'
+  7='Presentarán mayor riesgo de humedad que aquellos que permanezcan separados del piso mediante plataformas de madera.'
+  8='Ese saco podría humedecerse por una causa claramente distinta de la identificada en la primera experiencia.'
+  9='La primera regleta estaba relacionada con la menor carga obtenida por los equipos que se conectaban allí.'
+  10='Mostró que la carga baja seguía al punto de conexión y no permanecía asociada a los mismos equipos.'
+  11='Es probable que vuelvan a obtener cargas de batería menores mientras se utilice aquella regleta para conectarlos.'
+  12='Sería necesario investigar un problema particular del equipo o de su cargador, no solo de la regleta.'
+  13='La acumulación de materiales en el filtro redujo el paso del agua aunque la bomba continuaba funcionando.'
+  14='El tiempo habitual regresó después de limpiar el filtro sin realizar ninguna reparación en la bomba.'
+  15='El tiempo de llenado podría aumentar nuevamente a medida que los materiales se acumulen en el filtro.'
+  16='Sería necesario investigar otra posible causa del sistema porque el patrón anterior ya no explica bien el problema.'
+}
+
+function Elegir-Opcion($numero, $acierto, $correctas) {
   $correcta = $correctas[[int]$numero]
   if ($acierto) { return $correcta }
   return $null
@@ -60,7 +79,7 @@ function Probabilidad-Acierto($indice, $total) {
   return 0.25 + ($posicion * 0.65)
 }
 
-function Responder-Intento($session, $preguntas, $probabilidad) {
+function Responder-Intento($session, $preguntas, $probabilidad, $correctas) {
   # `elapsedMs` es el tiempo acumulado desde el inicio del intento (así lo
   # calcula el cliente real), no el tiempo de un solo ítem: debe crecer en
   # cada llamada para que el intento final refleje varios minutos de prueba
@@ -68,11 +87,12 @@ function Responder-Intento($session, $preguntas, $probabilidad) {
   $acumulado = 0
   foreach ($q in ($preguntas | Where-Object { $_.number -ge 1 })) {
     $acierto = (Get-Random -Minimum 0.0 -Maximum 1.0) -lt $probabilidad
-    $contenido = Elegir-Opcion $q.number $acierto
+    $contenido = Elegir-Opcion $q.number $acierto $correctas
     if ($null -eq $contenido) {
       $contenido = @($q.options | Where-Object { $_.content -ne $correctas[[int]$q.number] } | Get-Random)[0].content
     }
     $pos = [array]::IndexOf(($q.options | ForEach-Object { $_.content }), $contenido)
+    if ($pos -lt 0) { throw "La clave de prueba no coincide con el item $($q.number)." }
     $tiempoItem = Get-Random -Minimum 8000 -Maximum 45000
     $acumulado += $tiempoItem
     Invoke-RestMethod -Uri "$BaseUrl/api/attempt/answer" -Method Put `
@@ -112,7 +132,7 @@ for ($i = 0; $i -lt $genPre.codes.Count; $i++) {
     -Body (@{ code = $genPre.codes[$i] } | ConvertTo-Json) -ContentType "application/json" `
     -WebSession $sesion | Out-Null
   $estado = Invoke-RestMethod -Uri "$BaseUrl/api/attempt" -WebSession $sesion
-  Responder-Intento $sesion $estado.questions (Probabilidad-Acierto $i $PretestCount)
+  Responder-Intento $sesion $estado.questions (Probabilidad-Acierto $i $PretestCount) $correctasPretest
   Invoke-RestMethod -Uri "$BaseUrl/api/attempt/submit" -Method Post -WebSession $sesion `
     -ContentType "application/json" | Out-Null
 }
@@ -127,7 +147,7 @@ for ($i = 0; $i -lt $genPost.codes.Count; $i++) {
   $estado = Invoke-RestMethod -Uri "$BaseUrl/api/attempt" -WebSession $sesion
   # Mejora simulada respecto al pretest, con algo de ruido (no todos mejoran).
   $prob = [Math]::Min(0.95, (Probabilidad-Acierto $i $PostestCount) + 0.12)
-  Responder-Intento $sesion $estado.questions $prob
+  Responder-Intento $sesion $estado.questions $prob $correctasPostest
   Invoke-RestMethod -Uri "$BaseUrl/api/attempt/submit" -Method Post -WebSession $sesion `
     -ContentType "application/json" | Out-Null
 }
@@ -135,6 +155,7 @@ Check "aplica los $PostestCount intentos de postest" $true
 
 Write-Host "`n[5] Endpoint de analitica (pretest)" -ForegroundColor Cyan
 $analiticaPre = Invoke-RestMethod -Uri "$BaseUrl/api/admin/analytics?phase=pretest" -WebSession $s
+Check "pretest usa la version 2" ($analiticaPre.instrumentVersion -eq 2)
 Check "reporta n = $PretestCount" ($analiticaPre.n -eq $PretestCount) "n=$($analiticaPre.n)"
 Check "reporta 16 items" (@($analiticaPre.items).Count -eq 16) "count=$(@($analiticaPre.items).Count)"
 Check "cada item tiene dificultad entre 0 y 1" `
@@ -163,6 +184,7 @@ Check "KR-20 coincide con el calculo manual independiente" ($diferencia -lt 0.00
 
 Write-Host "`n[6] Endpoint de analitica (postest)" -ForegroundColor Cyan
 $analiticaPost = Invoke-RestMethod -Uri "$BaseUrl/api/admin/analytics?phase=postest" -WebSession $s
+Check "postest usa la version 3" ($analiticaPost.instrumentVersion -eq 3)
 Check "reporta n = $PostestCount" ($analiticaPost.n -eq $PostestCount) "n=$($analiticaPost.n)"
 
 Write-Host "`n[7] Comparacion pareada" -ForegroundColor Cyan

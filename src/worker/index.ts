@@ -1,13 +1,14 @@
 import { Hono } from "hono";
 import type { HealthResponse } from "@shared/types";
 import type { AppEnv } from "./types";
+import { INSTRUMENT_VERSIONS } from "@shared/instruments";
 import { countScoredQuestions } from "./lib/db";
 import { studentRoutes } from "./routes/student";
 import { adminRoutes } from "./routes/admin";
 
 export type { Env, AppEnv } from "./types";
 
-const APP_VERSION = "0.3.0";
+const APP_VERSION = "0.4.0";
 
 const app = new Hono<AppEnv>().basePath("/api");
 
@@ -18,9 +19,13 @@ const app = new Hono<AppEnv>().basePath("/api");
 app.get("/health", async (c) => {
   let database: HealthResponse["database"] = "no disponible";
   let items = 0;
+  let postestItems = 0;
 
   try {
-    items = await countScoredQuestions(c.env.DB);
+    [items, postestItems] = await Promise.all([
+      countScoredQuestions(c.env.DB, INSTRUMENT_VERSIONS.pretest),
+      countScoredQuestions(c.env.DB, INSTRUMENT_VERSIONS.postest),
+    ]);
     database = "conectada";
   } catch (error) {
     // Antes de aplicar las migraciones la tabla no existe todavía.
@@ -34,6 +39,10 @@ app.get("/health", async (c) => {
     status: "ok",
     database,
     items,
+    instruments: {
+      pretest: { version: INSTRUMENT_VERSIONS.pretest, items },
+      postest: { version: INSTRUMENT_VERSIONS.postest, items: postestItems },
+    },
     version: APP_VERSION,
   });
 });

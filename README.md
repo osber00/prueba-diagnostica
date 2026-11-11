@@ -9,6 +9,11 @@ rural intermitente y para producir directamente el material del capítulo de
 resultados de la investigación (tablas, gráficos, psicometría y exportación a
 SPSS/R).
 
+**Instrumentos por fase:** el pretest conserva su versión 2; el postest utiliza
+la versión 3 del instrumento revisado en `docs/POSTEST-INFERENCIAL-MACAJAN.pdf`.
+Los textos y preguntas son distintos. Fuente, control de extensión y protocolo:
+[Implementación del postest](docs/POSTEST-IMPLEMENTACION.md).
+
 - **Estudiantes:** entran con un código impreso (`MAC-XXXX-XXXX`), responden
   en el móvil, pueden perder señal o cerrar el navegador y continuar después;
   nunca ven puntajes ni retroalimentación (salvo en el ítem de calentamiento).
@@ -245,6 +250,13 @@ curl https://prueba-inferencial-macajan.<tu-subdominio>.workers.dev/api/health
    investigación): repite el proceso generando códigos de fase **Postest**
    con **exactamente los mismos nombres**. El gráfico de comparación
    pareada pretest-postest aparecerá automáticamente en Resultados.
+   - Los nuevos intentos de postest reciben **Los corrales**, **Los sacos de maíz**,
+     **Los portátiles de la sala de informática** y **El filtro del sistema de agua**.
+   - La duración estimada es de 45 minutos, sin cierre automático.
+   - No reinicies los códigos de pretest: genera otros de fase postest para
+     conservar los resultados ya recogidos.
+   - Si un código ya había iniciado el antiguo postest, utiliza uno nuevo.
+     El intento anterior se conserva y no se cambia de instrumento silenciosamente.
 
 > **Advertencia metodológica que muestra el propio panel:** con n = 37 los
 > índices psicométricos (p, D, KR-20) son inestables y solo ilustrativos;

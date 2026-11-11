@@ -6,7 +6,6 @@ import type {
   Phase,
   PublicText,
 } from "@shared/types";
-import { ACTIVE_INSTRUMENT_VERSION } from "@shared/types";
 
 /* ===========================================================================
    Filas de D1, con los nombres tal como están en el esquema SQL.
@@ -207,12 +206,12 @@ export async function getAnswerKey(
 }
 
 /** Conteo de ítems calificables. Usado por la sonda de salud. */
-export async function countScoredQuestions(db: D1Database): Promise<number> {
+export async function countScoredQuestions(db: D1Database, instrumentVersion: number): Promise<number> {
   const row = await db
     .prepare(
       "SELECT COUNT(*) AS total FROM questions WHERE is_scored = 1 AND instrument_version = ?",
     )
-    .bind(ACTIVE_INSTRUMENT_VERSION)
+    .bind(instrumentVersion)
     .first<{ total: number }>();
 
   return row?.total ?? 0;

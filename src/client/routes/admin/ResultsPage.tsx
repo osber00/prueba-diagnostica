@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { AnalyticsAttempt, AnalyticsResponse, PairedResult, Phase } from "@shared/types";
 import { TOTAL_ITEMS } from "@shared/types";
 import { GuiaLectura } from "@/components/illustrations";
@@ -30,24 +30,26 @@ export function ResultsPage() {
     dir: "desc",
   });
 
-  const refreshAnalytics = useCallback(async (targetPhase: Phase) => {
-    setLoading(true);
-    try {
-      const a = await fetchAnalytics(targetPhase);
-      setAnalytics(a);
-      setError(null);
-    } catch (err) {
-      setError(
-        err instanceof ApiRequestError ? err.message : "No se pudo cargar los resultados.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void refreshAnalytics(phase);
-  }, [phase, refreshAnalytics]);
+    let active = true;
+    setLoading(true);
+    fetchAnalytics(phase)
+      .then((data) => {
+        if (!active) return;
+        setAnalytics(data);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setError(err instanceof ApiRequestError ? err.message : "No se pudo cargar los resultados.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    // Un cambio rápido de fase no debe mostrar ni exportar la respuesta
+    // atrasada de la fase anterior con la etiqueta de la nueva selección.
+    return () => { active = false; };
+  }, [phase]);
 
   // El apareo pretest-postest no depende de la fase seleccionada (compara
   // ambas a la vez), así que se carga una sola vez en lugar de repetirse en
@@ -132,7 +134,7 @@ export function ResultsPage() {
             <h2 className="text-base font-extrabold text-ink-900">Resultados</h2>
             {analytics && (
               <p className="text-xs text-ink-700">
-                Instrumento vigente, versión {analytics.instrumentVersion}
+                Instrumento de {analytics.phase}, versión {analytics.instrumentVersion}
               </p>
             )}
           </div>
@@ -209,6 +211,10 @@ export function ResultsPage() {
               El CSV ancho tiene una fila por estudiante con una columna por ítem (1 = correcto);
               el CSV largo tiene una fila por respuesta, con la opción elegida y su posición en
               pantalla.
+            </p>
+            <p className="text-xs text-ink-700">
+              Pretest y postest utilizan textos y preguntas diferentes. La comparación es de
+              puntajes totales y por dimensión, no de preguntas equivalentes por su número.
             </p>
           </section>
 

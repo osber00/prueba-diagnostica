@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { PublicQuestion } from "@shared/types";
+import type { Phase as AssessmentPhase, PublicQuestion } from "@shared/types";
 import { ApiRequestError, fetchAttemptState, logoutAttempt, submitAttempt } from "@/lib/api";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useElapsedTimer } from "@/hooks/useElapsedTimer";
@@ -18,6 +18,7 @@ interface AttemptInfo {
   id: number;
   label: string | null;
   startedAt: number;
+  assessmentPhase: AssessmentPhase;
 }
 
 type Progress = { current: number; completed: number[] } | null;
@@ -51,6 +52,7 @@ export function StudentApp() {
         id: state.attempt.id,
         label: state.attempt.label,
         startedAt: state.attempt.startedAt,
+        assessmentPhase: state.attempt.phase,
       });
       setGroups(grouped);
       setSteps(builtSteps);
@@ -173,6 +175,7 @@ export function StudentApp() {
       return (
         <InstructionsScreen
           label={attempt.label}
+          phase={attempt.assessmentPhase}
           onContinue={goNext}
           onExit={() => void handleExit()}
         />

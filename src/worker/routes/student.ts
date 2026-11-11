@@ -6,10 +6,12 @@ import type {
   SaveAnswerResponse,
   SavedAnswer,
 } from "@shared/types";
-import { ACTIVE_INSTRUMENT_VERSION } from "@shared/types";
+import { getInstrumentVersion } from "@shared/instruments";
+import { TOTAL_ITEMS } from "@shared/types";
 import { redeemRequestSchema, saveAnswerRequestSchema } from "@shared/schemas";
 import {
   getAnswerKey,
+  countScoredQuestions,
   getQuestionsWithOptions,
   getTexts,
   now,
@@ -33,6 +35,9 @@ import {
 import { logAudit } from "../lib/audit";
 
 export const studentRoutes = new Hono<AppEnv>();
+
+const RETIRED_POSTEST_ERROR =
+  "Este código inició un instrumento de postest anterior. Solicita a tu docente un código nuevo para la prueba final.";
 
 /* ---------------------------------------------------------------------------
    POST /api/attempt/redeem — canje del código e inicio del intento
@@ -116,6 +121,11 @@ studentRoutes.post("/redeem", async (c) => {
     );
   }
 
+  if (code.phase === "postest" && existing &&
+      existing.instrument_version !== getInstrumentVersion("postest")) {
+    return c.json({ error: RETIRED_POSTEST_ERROR }, 409);
+  }
+
   const timestamp = now();
   const userAgent = c.req.header("user-agent")?.slice(0, 300) ?? null;
 
@@ -131,6 +141,11 @@ studentRoutes.post("/redeem", async (c) => {
       .bind(timestamp, attemptId)
       .run();
   } else {
+    const instrumentVersion = getInstrumentVersion(code.phase);
+    if (await countScoredQuestions(c.env.DB, instrumentVersion) !== TOTAL_ITEMS) {
+      return c.json({ error: "La prueba todavía no está disponible. Avisa a tu docente." }, 503);
+    }
+
     const inserted = await c.env.DB.prepare(
       `INSERT INTO attempts (access_code_id, status, option_seed, started_at, last_seen_at,
                              user_agent, instrument_version)
@@ -143,7 +158,7 @@ studentRoutes.post("/redeem", async (c) => {
         timestamp,
         timestamp,
         userAgent,
-        ACTIVE_INSTRUMENT_VERSION,
+        instrumentVersion,
       )
       .first<{ id: number }>();
 
@@ -209,6 +224,12 @@ studentRoutes.get("/", async (c) => {
     .bind(attempt.access_code_id)
     .first<{ label: string | null; phase: "pretest" | "postest" }>();
 
+  if (code?.phase === "postest" &&
+      attempt.instrument_version !== getInstrumentVersion("postest")) {
+    clearAttemptSession(c);
+    return c.json({ error: RETIRED_POSTEST_ERROR }, 409);
+  }
+
   const [texts, questions, answers] = await Promise.all([
     getTexts(c.env.DB, attempt.instrument_version),
     getQuestionsWithOptions(c.env.DB, attempt.instrument_version),
@@ -268,10 +289,14 @@ studentRoutes.put("/answer", async (c) => {
   if (!input.success) return c.json({ error: "Datos inválidos" }, 400);
 
   const attempt = await c.env.DB.prepare(
-    "SELECT status, option_seed, instrument_version FROM attempts WHERE id = ?",
+    `SELECT a.status, a.option_seed, a.instrument_version, ac.phase
+       FROM attempts a JOIN access_codes ac ON ac.id = a.access_code_id
+      WHERE a.id = ?`,
   )
     .bind(attemptId)
-    .first<Pick<AttemptRow, "status" | "option_seed" | "instrument_version">>();
+    .first<Pick<AttemptRow, "status" | "option_seed" | "instrument_version"> & {
+      phase: "pretest" | "postest";
+    }>();
 
   if (!attempt) return c.json({ error: "El intento ya no existe" }, 404);
   if (attempt.status === "abandoned") {
@@ -280,6 +305,10 @@ studentRoutes.put("/answer", async (c) => {
   }
   if (attempt.status === "completed") {
     return c.json({ error: "La prueba ya fue enviada" }, 409);
+  }
+  if (attempt.phase === "postest" &&
+      attempt.instrument_version !== getInstrumentVersion("postest")) {
+    return c.json({ error: RETIRED_POSTEST_ERROR }, 409);
   }
 
   const questions = await getQuestionsWithOptions(c.env.DB, attempt.instrument_version);
@@ -355,15 +384,17 @@ studentRoutes.post("/submit", async (c) => {
   if (attemptId === null) return c.json({ error: "Sesión no iniciada" }, 401);
 
   const attempt = await c.env.DB.prepare(
-    `SELECT id, access_code_id, status, started_at, elapsed_ms, instrument_version
-       FROM attempts WHERE id = ?`,
+    `SELECT a.id, a.access_code_id, a.status, a.started_at, a.elapsed_ms,
+            a.instrument_version, ac.phase
+       FROM attempts a JOIN access_codes ac ON ac.id = a.access_code_id
+      WHERE a.id = ?`,
   )
     .bind(attemptId)
     .first<
       Pick<
         AttemptRow,
         "id" | "access_code_id" | "status" | "started_at" | "elapsed_ms" | "instrument_version"
-      >
+      > & { phase: "pretest" | "postest" }
     >();
 
   if (!attempt) return c.json({ error: "El intento ya no existe" }, 404);
@@ -375,6 +406,10 @@ studentRoutes.post("/submit", async (c) => {
   // Reenvío tras un fallo de red: se responde igual que la primera vez.
   if (attempt.status === "completed") {
     return c.json({ ok: true, alreadySubmitted: true });
+  }
+  if (attempt.phase === "postest" &&
+      attempt.instrument_version !== getInstrumentVersion("postest")) {
+    return c.json({ error: RETIRED_POSTEST_ERROR }, 409);
   }
 
   const [key, answers] = await Promise.all([
@@ -391,6 +426,9 @@ studentRoutes.post("/submit", async (c) => {
   // contra la clave de la versión del intento, no contra TOTAL_ITEMS, para
   // no romperse si una futura versión cambia el número de ítems.
   const expectedScored = [...key.values()].filter((entry) => entry.scored).length;
+  if (expectedScored === 0) {
+    return c.json({ error: "No se pudo cargar la prueba. Avisa a tu docente." }, 503);
+  }
   const answeredScored = answers.results.filter(
     (a) => key.get(a.question_id)?.scored,
   ).length;
