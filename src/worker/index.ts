@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import type { HealthResponse } from "@shared/types";
 import type { AppEnv } from "./types";
-import { INSTRUMENT_VERSIONS } from "@shared/instruments";
+import { INSTRUMENT_VERSIONS, OPEN_STUDENT_PHASE } from "@shared/instruments";
 import { countScoredQuestions } from "./lib/db";
 import { studentRoutes } from "./routes/student";
 import { adminRoutes } from "./routes/admin";
 
 export type { Env, AppEnv } from "./types";
 
-const APP_VERSION = "0.4.0";
+const APP_VERSION = "0.5.0";
 
 const app = new Hono<AppEnv>().basePath("/api");
 
@@ -43,6 +43,7 @@ app.get("/health", async (c) => {
       pretest: { version: INSTRUMENT_VERSIONS.pretest, items },
       postest: { version: INSTRUMENT_VERSIONS.postest, items: postestItems },
     },
+    studentPhase: OPEN_STUDENT_PHASE,
     version: APP_VERSION,
   });
 });

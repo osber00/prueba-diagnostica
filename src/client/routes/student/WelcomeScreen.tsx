@@ -83,10 +83,13 @@ export function WelcomeScreen({ onRedeemed }: WelcomeScreenProps) {
 
         <div className="space-y-1.5">
           <h1 className="text-2xl font-extrabold text-ink-900">
-            Prueba de comprensión lectora
+            Postest de comprensión lectora
           </h1>
           <p className="text-sm text-ink-500">
             Institución Educativa Macaján · Grado noveno
+          </p>
+          <p className="text-sm text-ink-700">
+            Usa el mismo código del pretest. Tus respuestas anteriores se conservan.
           </p>
         </div>
 

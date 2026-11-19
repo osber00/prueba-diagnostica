@@ -6,7 +6,7 @@ import type {
   SaveAnswerResponse,
   SavedAnswer,
 } from "@shared/types";
-import { getInstrumentVersion } from "@shared/instruments";
+import { getInstrumentVersion, OPEN_STUDENT_PHASE } from "@shared/instruments";
 import { TOTAL_ITEMS } from "@shared/types";
 import { redeemRequestSchema, saveAnswerRequestSchema } from "@shared/schemas";
 import {
@@ -33,11 +33,14 @@ import {
   recordFailedRedeem,
 } from "../lib/ratelimit";
 import { logAudit } from "../lib/audit";
+import { resolvePostestAccess } from "../lib/postestAccess";
 
 export const studentRoutes = new Hono<AppEnv>();
 
 const RETIRED_POSTEST_ERROR =
   "Este código inició un instrumento de postest anterior. Solicita a tu docente un código nuevo para la prueba final.";
+const PRETEST_CLOSED_ERROR =
+  "El pretest ya está cerrado. Ingresa tu mismo código para realizar el postest; tus resultados anteriores se conservan.";
 
 /* ---------------------------------------------------------------------------
    POST /api/attempt/redeem — canje del código e inicio del intento
@@ -81,7 +84,7 @@ studentRoutes.post("/redeem", async (c) => {
     );
   }
 
-  const code = await c.env.DB.prepare(
+  const originalCode = await c.env.DB.prepare(
     `SELECT id, code, label, phase, status, batch_id, created_at, expires_at, notes
        FROM access_codes WHERE code = ?`,
   )
@@ -89,22 +92,35 @@ studentRoutes.post("/redeem", async (c) => {
     .first<AccessCodeRow>();
 
   // Un código inexistente es la señal típica de fuerza bruta: sí consume cuota.
-  if (!code) {
+  if (!originalCode) {
     await recordFailedRedeem(c.env.DB, ip);
     return c.json({ error: "Ese código no existe. Revísalo con tu docente." }, 404);
   }
 
   // Los siguientes casos corresponden a códigos reales: no consumen cuota,
   // porque quien los presenta ya demostró tener un código legítimo.
-  if (code.status === "revoked") {
+  if (originalCode.status === "revoked") {
     return c.json({ error: "Ese código fue anulado. Solicita uno nuevo." }, 403);
   }
 
-  if (code.expires_at !== null && code.expires_at < now()) {
+  if (originalCode.expires_at !== null && originalCode.expires_at < now()) {
     return c.json({ error: "Ese código ya venció. Solicita uno nuevo." }, 403);
   }
 
-  const existing = await c.env.DB.prepare(
+  const instrumentVersion = getInstrumentVersion(OPEN_STUDENT_PHASE);
+  if (await countScoredQuestions(c.env.DB, instrumentVersion) !== TOTAL_ITEMS) {
+    return c.json({ error: "La prueba todavía no está disponible. Avisa a tu docente." }, 503);
+  }
+
+  const code = await resolvePostestAccess(c.env.DB, originalCode);
+  if (code.status === "revoked") {
+    return c.json({ error: "Ese acceso al postest fue anulado. Habla con tu docente." }, 403);
+  }
+  if (code.expires_at !== null && code.expires_at < now()) {
+    return c.json({ error: "Ese acceso al postest ya venció. Habla con tu docente." }, 403);
+  }
+
+  const findAttempt = () => c.env.DB.prepare(
     `SELECT id, access_code_id, status, option_seed, started_at, last_seen_at,
              completed_at, elapsed_ms, score_total, score_causal, score_predictive, user_agent,
              instrument_version
@@ -112,17 +128,17 @@ studentRoutes.post("/redeem", async (c) => {
   )
     .bind(code.id)
     .first<AttemptRow>();
+  let existing = await findAttempt();
 
   // Ya terminó: no se permite repetir sin que el gestor reinicie el intento.
   if (existing?.status === "completed") {
     return c.json(
-      { error: "Con ese código ya se envió la prueba. Habla con tu docente." },
+      { error: "Con ese código ya se envió el postest. Habla con tu docente." },
       409,
     );
   }
 
-  if (code.phase === "postest" && existing &&
-      existing.instrument_version !== getInstrumentVersion("postest")) {
+  if (existing && existing.instrument_version !== instrumentVersion) {
     return c.json({ error: RETIRED_POSTEST_ERROR }, 409);
   }
 
@@ -132,6 +148,7 @@ studentRoutes.post("/redeem", async (c) => {
   // Retoma el intento en curso en lugar de crear uno nuevo:
   // es exactamente el caso de una caída de señal o un navegador cerrado.
   let attemptId: number;
+  let resumed = Boolean(existing);
 
   if (existing) {
     attemptId = existing.id;
@@ -141,15 +158,11 @@ studentRoutes.post("/redeem", async (c) => {
       .bind(timestamp, attemptId)
       .run();
   } else {
-    const instrumentVersion = getInstrumentVersion(code.phase);
-    if (await countScoredQuestions(c.env.DB, instrumentVersion) !== TOTAL_ITEMS) {
-      return c.json({ error: "La prueba todavía no está disponible. Avisa a tu docente." }, 503);
-    }
-
     const inserted = await c.env.DB.prepare(
       `INSERT INTO attempts (access_code_id, status, option_seed, started_at, last_seen_at,
                              user_agent, instrument_version)
-       VALUES (?, 'in_progress', ?, ?, ?, ?, ?)
+        VALUES (?, 'in_progress', ?, ?, ?, ?, ?)
+        ON CONFLICT (access_code_id) DO NOTHING
        RETURNING id`,
     )
       .bind(
@@ -162,19 +175,27 @@ studentRoutes.post("/redeem", async (c) => {
       )
       .first<{ id: number }>();
 
-    if (!inserted) {
-      return c.json({ error: "No se pudo iniciar la prueba. Intenta de nuevo." }, 500);
+    if (inserted) {
+      attemptId = inserted.id;
+      await c.env.DB.prepare(
+        "UPDATE access_codes SET status = 'in_use' WHERE id = ? AND status = 'active'",
+      ).bind(code.id).run();
+      await logAudit(c.env.DB, "estudiante", "intento_iniciado", `postest ${code.id}`);
+    } else {
+      // Otro canje concurrente puede haber creado el mismo intento.
+      existing = await findAttempt();
+      if (!existing) {
+        return c.json({ error: "No se pudo iniciar la prueba. Intenta de nuevo." }, 503);
+      }
+      if (existing.status !== "in_progress") {
+        return c.json({ error: "El postest ya se envió o el acceso fue anulado." }, 409);
+      }
+      if (existing.instrument_version !== instrumentVersion) {
+        return c.json({ error: RETIRED_POSTEST_ERROR }, 409);
+      }
+      attemptId = existing.id;
+      resumed = true;
     }
-
-    attemptId = inserted.id;
-
-    await c.env.DB.prepare(
-      "UPDATE access_codes SET status = 'in_use' WHERE id = ?",
-    )
-      .bind(code.id)
-      .run();
-
-    await logAudit(c.env.DB, "estudiante", "intento_iniciado", code.code);
   }
 
   // El canje fue legítimo: se libera el contador de la red del colegio.
@@ -187,8 +208,8 @@ studentRoutes.post("/redeem", async (c) => {
     // El nombre es el que el gestor asignó al código. Sirve de confirmación
     // visual para que nadie responda con el código de otro por error.
     label: code.label,
-    phase: code.phase,
-    resumed: Boolean(existing),
+    phase: OPEN_STUDENT_PHASE,
+    resumed,
   });
 });
 
@@ -223,6 +244,11 @@ studentRoutes.get("/", async (c) => {
   )
     .bind(attempt.access_code_id)
     .first<{ label: string | null; phase: "pretest" | "postest" }>();
+
+  if (code?.phase !== OPEN_STUDENT_PHASE) {
+    clearAttemptSession(c);
+    return c.json({ error: PRETEST_CLOSED_ERROR }, 401);
+  }
 
   if (code?.phase === "postest" &&
       attempt.instrument_version !== getInstrumentVersion("postest")) {
@@ -299,6 +325,9 @@ studentRoutes.put("/answer", async (c) => {
     }>();
 
   if (!attempt) return c.json({ error: "El intento ya no existe" }, 404);
+  if (attempt.phase !== OPEN_STUDENT_PHASE) {
+    return c.json({ error: PRETEST_CLOSED_ERROR }, 403);
+  }
   if (attempt.status === "abandoned") {
     clearAttemptSession(c);
     return c.json({ error: "Ese código fue anulado. Solicita uno nuevo." }, 403);
@@ -398,6 +427,9 @@ studentRoutes.post("/submit", async (c) => {
     >();
 
   if (!attempt) return c.json({ error: "El intento ya no existe" }, 404);
+  if (attempt.phase !== OPEN_STUDENT_PHASE) {
+    return c.json({ error: PRETEST_CLOSED_ERROR }, 403);
+  }
   if (attempt.status === "abandoned") {
     clearAttemptSession(c);
     return c.json({ error: "Ese código fue anulado. Solicita uno nuevo." }, 403);

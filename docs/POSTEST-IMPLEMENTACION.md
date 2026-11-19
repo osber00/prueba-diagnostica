@@ -55,9 +55,11 @@ Las opciones siguen barajándose por intento y la clave no viaja al estudiante.
 
 1. Publicar la migración y el código antes de entregar los códigos a estudiantes.
 2. Comprobar `/api/health`: pretest v2 y postest v3, ambos con 16 ítems.
-3. En **Códigos**, generar un lote nuevo de fase **Postest**, con los mismos nombres
-   usados en el pretest. Los códigos postest aún sin usar también reciben v3 al canjearse.
-4. **No reiniciar códigos del pretest:** el reinicio elimina el intento y sus respuestas.
+3. Cada estudiante entra con **el mismo código del pretest**. Se vincula a un acceso
+   de postest independiente, sin cambiar el código o los resultados originales.
+   Los códigos nuevos de postest también siguen funcionando.
+4. El pretest está cerrado: el servidor impide generarlo, continuarlo, guardar,
+   enviar, reiniciar o anular sus registros. Solo se consulta el historial.
 5. Si un código ya había iniciado el antiguo postest v2, se pide uno nuevo;
    sus datos se conservan. No se sustituye su contenido silenciosamente.
 6. Los 45 minutos son una duración **estimada**, sin cierre automático.
@@ -105,7 +107,7 @@ npx wrangler d1 execute prueba-inferencial --remote --command $consulta --json
 No ejecutar `dev-reset-*` ni suites que siembran datos simulados contra producción.
 Si las comprobaciones fallan, no iniciar la prueba con estudiantes hasta resolverlo.
 
-## Publicación verificada
+## Publicación inicial verificada (0.4.0)
 
 Publicado el **11 de noviembre de 2026**, aplicación **0.4.0**.
 Identificador de versión del Worker: `930bb2c9-e79f-4d98-bffe-d1592b363596`.
@@ -121,5 +123,39 @@ Identificador de versión del Worker: `930bb2c9-e79f-4d98-bffe-d1592b363596`.
 - No se generaron intentos simulados en producción ni se alteró la información
   del grupo para verificar el despliegue.
 
-Para la aplicación, generar códigos de fase **Postest** con los mismos nombres
-del pretest. No reiniciar los códigos anteriores.
+## Reutilización del código y cierre del pretest
+
+Desde la versión **0.5.0**, el código original abre solamente el postest.
+La migración `0005_reutilizar_codigos_postest.sql` añade `postest_code_links`,
+sin actualizar ni eliminar filas existentes.
+
+- Al primer canje del código antiguo se crea un acceso y un intento de postest
+  nuevos. No se cambia la fase del código original ni se reinicia su intento.
+- El vínculo es único por código original. Los reintentos y canjes simultáneos
+  reutilizan el mismo postest, sin crear duplicados.
+- Tras enviar el postest se rechaza una nueva aplicación con ese código.
+- Las sesiones antiguas de pretest vuelven al ingreso y no pueden guardar ni enviar.
+- Se respetan los bloqueos por anulación y vencimiento.
+- El panel, monitor y exportaciones muestran el código original en el postest;
+  las acciones de postest solo afectan el nuevo registro.
+- Las comparaciones y exportaciones de pretest siguen utilizando sus datos intactos.
+
+No hace falta crear otro lote para quienes ya tienen código. Los accesos nuevos
+se generan únicamente en fase **Postest**, para estudiantes que no dispongan de uno.
+
+### Publicación verificada de la reutilización
+
+Publicado el **18 de noviembre de 2026**, aplicación **0.5.0**.
+Identificador del Worker: `742f9cbf-3650-4fa4-9a10-211204729c35`.
+
+- `/api/health` confirma `studentPhase: "postest"` y el instrumento v3 de 16 ítems.
+- Las 21 pruebas automatizadas y la compilación finalizaron correctamente.
+- Se verificó en navegador local el ingreso con un código de pretest, la apertura
+  de un postest nuevo sin respuestas heredadas y la protección del historial.
+- La portada publicada indica que se reutiliza el código original.
+- Tras respaldar, migrar y publicar se compararon los instrumentos y los datos
+  originales de pretest fila por fila: sin cambios.
+- No se iniciaron intentos de estudiantes reales para verificar producción.
+
+Si un estudiante conservaba abierta una pantalla antigua, debe recargar la página
+e ingresar su mismo código. Las sesiones de pretest ya no pueden guardar respuestas.

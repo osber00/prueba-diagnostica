@@ -6,6 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { convertV4MiniflareOptions, Miniflare } from "miniflare";
 import app from "../src/worker/index";
 import { getInstrumentVersion } from "../src/shared/instruments";
+import { generateCode } from "../src/worker/lib/codes";
+import { sign } from "../src/worker/lib/crypto";
+import { ATTEMPT_COOKIE } from "../src/worker/lib/session";
 import type {
   AnalyticsResponse,
   AttemptStateResponse,
@@ -64,12 +67,59 @@ async function snapshot() {
 }
 
 async function createCode(phase: Phase, label: string) {
+  if (phase === "pretest") {
+    // Fixture histórico: la API real ya no permite generar pretests.
+    const code = generateCode();
+    await db.prepare(
+      "INSERT INTO access_codes (code,label,phase,status,created_at) VALUES (?,?,'pretest','active',1)",
+    ).bind(code, label).run();
+    return code;
+  }
   const response = await admin.request("/admin/codes", "POST", {
     quantity: 1, phase, labels: [label],
   });
   expect(response.status).toBe(201);
   const body: { codes: string[] } = await response.json();
   return body.codes[0]!;
+}
+
+async function pretestSnapshot() {
+  return Promise.all([
+    "SELECT * FROM access_codes WHERE phase='pretest' ORDER BY id",
+    "SELECT a.* FROM attempts a JOIN access_codes ac ON ac.id=a.access_code_id WHERE ac.phase='pretest' ORDER BY a.id",
+    "SELECT ans.* FROM answers ans JOIN attempts a ON a.id=ans.attempt_id JOIN access_codes ac ON ac.id=a.access_code_id WHERE ac.phase='pretest' ORDER BY ans.id",
+  ].map(async (sql) => (await db.prepare(sql).all()).results));
+}
+
+async function historicalCookie(attemptId: number) {
+  const payload = btoa(JSON.stringify({ sub: String(attemptId), exp: Date.now() + 3_600_000 })).replace(/=+$/u, "");
+  return `${ATTEMPT_COOKIE}=${encodeURIComponent(await sign(payload, env.SESSION_SECRET))}`;
+}
+
+async function seedCompletedPretest(label: string) {
+  const code = await createCode("pretest", label);
+  const access = await db.prepare("SELECT id FROM access_codes WHERE code=?").bind(code).first<{ id: number }>();
+  const attempt = await db.prepare(
+    `INSERT INTO attempts
+       (access_code_id,status,option_seed,started_at,last_seen_at,completed_at,
+        score_total,score_causal,score_predictive,instrument_version)
+     VALUES (?,'completed',123,1,2,2,8,4,4,2) RETURNING id`,
+  ).bind(access!.id).first<{ id: number }>();
+  const { results: questions } = await db.prepare(
+    "SELECT id,display_number,correct_option FROM questions WHERE instrument_version=2 AND is_scored=1 ORDER BY display_number",
+  ).all<{ id: number; display_number: number; correct_option: string }>();
+  await db.batch([
+    db.prepare("UPDATE access_codes SET status='used' WHERE id=?").bind(access!.id),
+    ...questions.map((question) => db.prepare(
+      `INSERT INTO answers
+         (attempt_id,question_id,selected_option,displayed_position,is_correct,answered_at)
+       VALUES (?,?,?,0,?,2)`,
+    ).bind(
+      attempt!.id, question.id,
+      question.display_number % 2 === 0 ? question.correct_option : (question.correct_option === "A" ? "B" : "A"),
+      question.display_number % 2 === 0 ? 1 : 0,
+    )),
+  ]);
 }
 
 async function startStudent(phase: Phase, label: string) {
@@ -128,7 +178,7 @@ beforeAll(async () => {
     SESSION_SECRET: "secreto-exclusivo-de-pruebas-aisladas-no-produccion",
   };
   const migrations = readdirSync(resolve(root, "migrations")).filter((f) => f.endsWith(".sql")).sort();
-  for (const file of migrations.filter((f) => !f.startsWith("0004_"))) await applyMigration(file);
+  for (const file of migrations.filter((f) => f < "0004_")) await applyMigration(file);
 
   await db.batch([
     db.prepare(`INSERT INTO access_codes (id,code,label,phase,status,created_at) VALUES
@@ -156,6 +206,7 @@ beforeAll(async () => {
 
   beforeMigration = await snapshot();
   await applyMigration("0004_postest_inferencial_macajan.sql");
+  await applyMigration("0005_reutilizar_codigos_postest.sql");
   afterMigration = await snapshot();
 }, 60_000);
 
@@ -216,29 +267,32 @@ describe("postest revisado de Macaján", () => {
     expect(row).toEqual({ status: "active", id: null });
   });
 
-  it("asigna versiones distintas por fase sin enviar claves al estudiante", async () => {
+  it("entrega solo postest con códigos nuevos o históricos, sin enviar claves al estudiante", async () => {
     for (const phase of ["pretest", "postest"] as const) {
       const { state } = await startStudent(phase, `Asignación ${phase}`);
       const attempt = await db.prepare("SELECT instrument_version FROM attempts WHERE id=?")
         .bind(state.attempt.id).first<{ instrument_version: number }>();
-      expect(attempt?.instrument_version).toBe(getInstrumentVersion(phase));
-      expect(state.attempt.phase).toBe(phase);
+      expect(attempt?.instrument_version).toBe(3);
+      expect(state.attempt.phase).toBe("postest");
       expect(state.texts).toHaveLength(5);
       expect(state.questions).toHaveLength(17);
       expect(JSON.stringify(state)).not.toMatch(/"(?:correctOption|correct_option|isCorrect|is_correct|rationale|is_scored|letter|selectedOption)"/u);
-      expect(state.texts[1]?.title).toBe(phase === "postest" ? "Los corrales" : "El tanque de la huerta");
+      expect(state.texts[1]?.title).toBe("Los corrales");
     }
   });
 
-  it("reanuda el pretest histórico con su versión y respuestas originales", async () => {
+  it("un código de pretest en curso abre un postest nuevo sin retomar ni modificar el pretest", async () => {
+    const before = await pretestSnapshot();
     const student = client();
     const response = await student.request("/attempt/redeem", "POST", { code: "MAC-TEST-BBBB" });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ resumed: true, phase: "pretest" });
+    expect(await response.json()).toMatchObject({ resumed: false, phase: "postest" });
     const state: AttemptStateResponse = await (await student.request("/attempt")).json();
-    expect(state.texts[1]?.title).toBe("La huerta escolar");
-    expect(state.answers).toEqual([{ questionId: 1, displayedPosition: 0 }]);
-    expect(state.questions.filter((q) => q.number > 0).every((q) => q.id < 200)).toBe(true);
+    expect(state.texts[1]?.title).toBe("Los corrales");
+    expect(state.answers).toEqual([]);
+    expect(state.questions.every((q) => q.id >= 300)).toBe(true);
+    expect(state.attempt.id).not.toBe(2);
+    expect(await pretestSnapshot()).toEqual(before);
   });
 
   it("no permite reutilizar un postest de la versión anterior ni cambia sus datos", async () => {
@@ -282,7 +336,7 @@ describe("postest revisado de Macaján", () => {
   }, 30_000);
 
   it("compara el pretest v2 con el postest v3 y no mezcla sus ítems ni postests antiguos", async () => {
-    await finish("pretest", "Par de revisión", (number) => number % 2 === 0);
+    await seedCompletedPretest("Par de revisión");
     await finish("postest", "Par de revisión");
     const paired: PairedResponse = await (await admin.request("/admin/analytics/paired")).json();
     expect(paired.pairs.find((p) => p.label === "Par de revisión")).toMatchObject({
@@ -305,6 +359,83 @@ describe("postest revisado de Macaján", () => {
     expect(health).toMatchObject({
       database: "conectada", items: 16,
       instruments: { pretest: { version: 2, items: 16 }, postest: { version: 3, items: 16 } },
+      studentPhase: "postest",
     });
+  });
+
+  it("reutiliza el código ya usado, guarda el postest separado y bloquea una segunda aplicación", async () => {
+    const before = await pretestSnapshot();
+    const student = client();
+    expect((await student.request("/attempt/redeem", "POST", { code: "mac test aaaa" })).status).toBe(200);
+    const state: AttemptStateResponse = await (await student.request("/attempt")).json();
+    expect(state.attempt.phase).toBe("postest");
+    expect(state.attempt.id).not.toBe(1);
+    await answerAll(student, state);
+    expect((await student.request("/attempt/submit", "POST")).status).toBe(200);
+    expect((await client().request("/attempt/redeem", "POST", { code: "MAC-TEST-AAAA" })).status).toBe(409);
+    expect(await pretestSnapshot()).toEqual(before);
+    const analytics: AnalyticsResponse = await (await admin.request("/admin/analytics?phase=postest")).json();
+    expect(analytics.attempts.find((a) => a.attemptId === state.attempt.id))
+      .toMatchObject({ code: "MAC-TEST-AAAA", label: "Histórico", scoreTotal: 16 });
+    const paired: PairedResponse = await (await admin.request("/admin/analytics/paired")).json();
+    expect(paired.pairs.find((p) => p.label === "Histórico")).toMatchObject({
+      pretest: { scoreTotal: 8 }, postest: { scoreTotal: 16 },
+    });
+  }, 30_000);
+
+  it("los canjes simultáneos crean un solo acceso y un solo intento, sin huérfanos", async () => {
+    const code = await createCode("pretest", "Canje simultáneo");
+    const before = await db.prepare("SELECT COUNT(*) AS total FROM access_codes WHERE phase='postest'").first<{ total: number }>();
+    const students = Array.from({ length: 4 }, () => client());
+    const responses = await Promise.all(students.map((student) => student.request("/attempt/redeem", "POST", { code })));
+    expect(responses.map((r) => r.status)).toEqual([200, 200, 200, 200]);
+    const states: AttemptStateResponse[] = await Promise.all(students.map(async (student) =>
+      (await student.request("/attempt")).json(),
+    ));
+    expect(new Set(states.map((state) => state.attempt.id)).size).toBe(1);
+    const after = await db.prepare("SELECT COUNT(*) AS total FROM access_codes WHERE phase='postest'").first<{ total: number }>();
+    expect(after!.total - before!.total).toBe(1);
+    const links = await db.prepare(
+      "SELECT COUNT(*) AS total FROM postest_code_links link JOIN access_codes ac ON ac.id=link.pretest_access_code_id WHERE ac.code=?",
+    ).bind(code).first<{ total: number }>();
+    expect(links!.total).toBe(1);
+  }, 30_000);
+
+  it("cierra sesiones antiguas y rechaza guardar o enviar un pretest sin alterar sus datos", async () => {
+    const before = await pretestSnapshot();
+    const cookie = await historicalCookie(2);
+    const read = await app.request("/api/attempt", { headers: { cookie } }, env);
+    expect(read.status).toBe(401);
+    expect(await read.json()).toHaveProperty("error", expect.stringContaining("pretest ya está cerrado"));
+    const answer = await app.request("/api/attempt/answer", {
+      method: "PUT", headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ questionId: 1, displayedPosition: 1, timeSpentMs: 1000, elapsedMs: 1000 }),
+    }, env);
+    expect(answer.status).toBe(403);
+    const submit = await app.request("/api/attempt/submit", { method: "POST", headers: { cookie } }, env);
+    expect(submit.status).toBe(403);
+    expect(await pretestSnapshot()).toEqual(before);
+  });
+
+  it("protege el pretest contra generación, reinicio y anulación desde la API del gestor", async () => {
+    const before = await pretestSnapshot();
+    expect((await admin.request("/admin/codes", "POST", { quantity: 1, phase: "pretest" })).status).toBe(403);
+    expect((await admin.request("/admin/codes/1/reset", "POST")).status).toBe(403);
+    expect((await admin.request("/admin/codes/2/revoke", "POST")).status).toBe(403);
+    expect(await pretestSnapshot()).toEqual(before);
+  });
+
+  it("el gestor ve y administra el postest con el código original, sin tocar el pretest", async () => {
+    const before = await pretestSnapshot();
+    const rows: { codes: { id: number; code: string; phase: string }[] } =
+      await (await admin.request("/admin/codes?phase=postest")).json();
+    const row = rows.codes.find((r) => r.code === "MAC-TEST-BBBB")!;
+    expect(row.phase).toBe("postest");
+    expect(row.id).not.toBe(2);
+    expect((await admin.request(`/admin/codes/${row.id}/revoke`, "POST")).status).toBe(200);
+    expect((await client().request("/attempt/redeem", "POST", { code: "MAC-TEST-BBBB" })).status).toBe(403);
+    expect(await pretestSnapshot()).toEqual(before);
+    const live: { attempts: { phase: string }[] } = await (await admin.request("/admin/live")).json();
+    expect(live.attempts.every((a) => a.phase === "postest")).toBe(true);
   });
 });

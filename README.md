@@ -14,6 +14,11 @@ la versión 3 del instrumento revisado en `docs/POSTEST-INFERENCIAL-MACAJAN.pdf`
 Los textos y preguntas son distintos. Fuente, control de extensión y protocolo:
 [Implementación del postest](docs/POSTEST-IMPLEMENTACION.md).
 
+**Aplicación actual: solo postest.** Los estudiantes ingresan con el mismo código
+del pretest. Se crea un intento separado de postest; las respuestas y resultados
+del pretest quedan protegidos, sin cambios. No hace falta generar códigos nuevos
+para quienes ya tienen uno.
+
 - **Estudiantes:** entran con un código impreso (`MAC-XXXX-XXXX`), responden
   en el móvil, pueden perder señal o cerrar el navegador y continuar después;
   nunca ven puntajes ni retroalimentación (salvo en el ítem de calentamiento).
@@ -197,23 +202,23 @@ curl https://prueba-inferencial-macajan.<tu-subdominio>.workers.dev/api/health
 
 1. Entra a `https://<tu-worker>.workers.dev/gestor` con el código maestro.
 2. En la pestaña **Códigos**:
-   - Fase: **Pretest**.
-   - Pega los nombres de los 37 estudiantes, **uno por línea**, con la
-     ortografía exacta que volverás a usar en el postest (la comparación
-     pareada pretest-postest se hace por nombre; dos estudiantes con el
-     mismo nombre quedan excluidos del apareo y el panel lo advierte).
-   - La cantidad se deriva sola de los nombres. Pulsa **Generar**.
-3. Pulsa **Imprimir esta hoja**: obtienes una hoja con una tarjeta por
-   estudiante (nombre + código). Recórtala y reparte una tarjeta a cada uno.
+   - Los códigos originales del pretest ya permiten entrar al **Postest**,
+     incluso cuando figuran como usados en el historial de pretest.
+   - No reinicies ni modifiques el pretest. El nuevo acceso conserva el nombre
+     y almacena el postest en un intento independiente.
+   - Solo si falta un código, genera uno nuevo: la única fase habilitada es
+     **Postest**. Mantén la ortografía del nombre para la comparación pareada.
+3. Si hace falta, imprime otra vez el lote original: el código no cambia.
 
-> Consejo: si quieres ensayar el panel antes de la aplicación real, ejecuta
-> en local `scripts/probar-api-analitica.ps1` — siembra 37 estudiantes
-> simulados con resultados completos para revisar todos los gráficos.
+> Verificación segura: `npm test` usa una D1 aislada, incluye fixtures históricos
+> de pretest y comprueba reutilización, conservación de datos y comparación.
+> Las suites PowerShell de las fases iniciales corresponden al protocolo previo;
+> no deben utilizarse para volver a aplicar pretests ni ejecutarse en producción.
 
 ### Durante la sesión
 
-1. Cada estudiante abre la URL del Worker en su móvil y escribe su código
-   (no importan mayúsculas ni los guiones).
+1. Cada estudiante abre la URL del Worker en su móvil y escribe **el mismo código
+   del pretest** (no importan mayúsculas ni los guiones). Solo se abre el postest.
 2. La prueba: instrucciones → un ítem de ejemplo con retroalimentación →
    4 textos con 4 preguntas cada uno → revisión → envío.
    - Puede volver a leer cada texto en cualquier momento.
@@ -230,13 +235,13 @@ curl https://prueba-inferencial-macajan.<tu-subdominio>.workers.dev/api/health
 
 | Situación | Acción en el panel |
 |---|---|
-| Un estudiante envió por accidente o hubo un problema técnico | Códigos → **Reiniciar**: borra sus respuestas y puede empezar de nuevo con el mismo código |
-| Un código se compartió o se filtró | Códigos → **Anular**: bloquea el código y, si estaba en curso, abandona el intento |
+| Un estudiante envió el postest por accidente o hubo un problema técnico | Códigos → fase **Postest** → **Reiniciar**: borra solo el intento de postest y permite repetirlo; el pretest no cambia |
+| Un acceso al postest se compartió o se filtró | Códigos → fase **Postest** → **Anular**: bloquea ese acceso, también al ingresar el código original; el pretest no cambia |
 | Estudiante sin código | Genera un lote nuevo con su nombre e imprime solo esa tarjeta |
 
 ### Después de la sesión
 
-1. Pestaña **Resultados** → fase **Pretest**:
+1. Pestaña **Resultados** → fase **Postest** (o **Pretest** para consultar el historial):
    - Tabla ordenable con puntaje total, causal, predictiva, tiempo y
      respondidos por estudiante.
    - **Psicometría por ítem**: dificultad (p), discriminación (D) y
@@ -246,15 +251,13 @@ curl https://prueba-inferencial-macajan.<tu-subdominio>.workers.dev/api/health
      puntajes, distractores, niveles de desempeño, tiempo vs. puntaje.
    - **Exportar**: CSV ancho (1 fila por estudiante, ideal para KR-20/alfa
      en SPSS), CSV largo (1 fila por respuesta, ideal para R) o JSON.
-2. Para el **postest** (semanas después, según el diseño de la
-   investigación): repite el proceso generando códigos de fase **Postest**
-   con **exactamente los mismos nombres**. El gráfico de comparación
-   pareada pretest-postest aparecerá automáticamente en Resultados.
+2. La comparación pareada pretest-postest aparece automáticamente en Resultados.
+   Los accesos vinculados conservan el mismo nombre y código visible, pero los
+   intentos y resultados de cada fase son independientes.
    - Los nuevos intentos de postest reciben **Los corrales**, **Los sacos de maíz**,
      **Los portátiles de la sala de informática** y **El filtro del sistema de agua**.
    - La duración estimada es de 45 minutos, sin cierre automático.
-   - No reinicies los códigos de pretest: genera otros de fase postest para
-     conservar los resultados ya recogidos.
+   - Los registros del pretest son de consulta y no admiten reinicio ni anulación.
    - Si un código ya había iniciado el antiguo postest, utiliza uno nuevo.
      El intento anterior se conserva y no se cambia de instrumento silenciosamente.
 

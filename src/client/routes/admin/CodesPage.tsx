@@ -187,7 +187,6 @@ export function CodesPage() {
 
 function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void }) {
   const [quantity, setQuantity] = useState("37");
-  const [phase, setPhase] = useState<Phase>("pretest");
   const [namesText, setNamesText] = useState("");
   const [notes, setNotes] = useState("");
   const [validForDays, setValidForDays] = useState("");
@@ -216,7 +215,7 @@ function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void 
     try {
       const res = await generateCodes({
         quantity: effectiveQuantity,
-        phase,
+        phase: "postest",
         labels: usingNames ? names : undefined,
         notes: notes.trim() || undefined,
         validForDays: validForDays.trim() ? Number(validForDays) : undefined,
@@ -241,24 +240,23 @@ function GenerateForm({ onGenerated }: { onGenerated: (batchId: string) => void 
         </span>
         <div>
           <h1 className="text-lg font-extrabold tracking-tight text-ink-900">Generar códigos</h1>
-          <p className="text-sm text-ink-500">Crea accesos individuales para una nueva aplicación de la prueba.</p>
+          <p className="text-sm text-ink-500">
+            Los códigos del pretest ya sirven para el postest. Genera nuevos solo si hacen falta.
+          </p>
         </div>
       </div>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <label htmlFor="code-phase" className="block text-sm font-bold text-ink-700">
-            Fase
+            Fase activa
           </label>
-          <select
+          <input
             id="code-phase"
-            value={phase}
-            onChange={(e) => setPhase(e.target.value as Phase)}
+            value="Postest"
+            readOnly
             className="w-full rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2.5 text-sm font-semibold text-ink-900 focus:border-rio-500 focus:bg-white focus:outline-none focus:ring-3 focus:ring-rio-100"
-          >
-            <option value="pretest">Pretest</option>
-            <option value="postest">Postest</option>
-          </select>
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -512,7 +510,9 @@ function CodesTable({
                   )}
                 </td>
                 <td className="py-2.5 pr-3">
-                  <div className="flex gap-2">
+                  {row.phase === "pretest" ? (
+                    <span className="text-xs text-ink-700">Histórico protegido</span>
+                  ) : <div className="flex gap-2">
                     {row.status !== "revoked" && (
                       <button
                         type="button"
@@ -533,7 +533,7 @@ function CodesTable({
                         Reiniciar
                       </button>
                     )}
-                  </div>
+                  </div>}
                 </td>
               </tr>
             );
@@ -562,13 +562,13 @@ function PrintSheet({ batch, onPrinted }: { batch: Batch; onPrinted: () => void 
   return (
     <div className="hidden print:block">
       <h1 className="mb-4 text-lg font-bold">
-        Códigos de acceso — {batch.phase === "pretest" ? "Pretest" : "Postest"} · I.E. Macaján
+        Códigos de acceso — Postest · I.E. Macaján
       </h1>
       <div className="grid grid-cols-2 gap-4">
         {batch.codes.map((c) => (
           <div key={c.id} className="break-inside-avoid rounded-lg border-2 border-black p-4">
             <p className="text-[10px] uppercase tracking-wide text-gray-500">
-              Prueba de comprensión lectora · {c.phase === "pretest" ? "Pretest" : "Postest"}
+              Prueba final de comprensión lectora · Postest
             </p>
             <p className="mt-1 text-sm">
               Nombre: {c.label ?? "_______________________"}

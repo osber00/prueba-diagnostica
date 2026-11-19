@@ -18,7 +18,7 @@ import {
   PERFORMANCE_BANDS,
   TOTAL_ITEMS,
 } from "@shared/types";
-import { getInstrumentVersion } from "@shared/instruments";
+import { getInstrumentVersion, OPEN_STUDENT_PHASE } from "@shared/instruments";
 import { now } from "../lib/db";
 import { generateBatchId, generateCodes } from "../lib/codes";
 import { sha256Hex, timingSafeEqual } from "../lib/crypto";
@@ -151,6 +151,9 @@ adminRoutes.post("/codes", async (c) => {
   }
 
   const { quantity, phase, labels, notes, validForDays } = input.data;
+  if (phase !== OPEN_STUDENT_PHASE) {
+    return c.json({ error: "El pretest ya está cerrado. Solo se pueden generar accesos de postest." }, 403);
+  }
   const codes = generateCodes(quantity);
 
   if (codes.length < quantity) {
@@ -194,7 +197,7 @@ adminRoutes.get("/codes", async (c) => {
   const filtroFase = phase === "pretest" || phase === "postest" ? phase : null;
 
   const { results } = await c.env.DB.prepare(
-    `SELECT ac.id, ac.code, ac.label, ac.phase, ac.status, ac.batch_id,
+    `SELECT ac.id, COALESCE(original.code, ac.code) AS code, ac.label, ac.phase, ac.status, ac.batch_id,
             ac.created_at, ac.expires_at, ac.notes,
             a.id            AS attempt_id,
             a.status        AS attempt_status,
@@ -202,8 +205,10 @@ adminRoutes.get("/codes", async (c) => {
             a.completed_at  AS attempt_completed_at,
             a.score_total   AS score_total,
             (SELECT COUNT(*) FROM answers WHERE attempt_id = a.id) AS answered
-       FROM access_codes ac
-       LEFT JOIN attempts a ON a.access_code_id = ac.id
+        FROM access_codes ac
+        LEFT JOIN attempts a ON a.access_code_id = ac.id
+        LEFT JOIN postest_code_links link ON link.postest_access_code_id = ac.id
+        LEFT JOIN access_codes original ON original.id = link.pretest_access_code_id
       WHERE (?1 IS NULL OR ac.phase = ?1)
       ORDER BY ac.created_at DESC, ac.code`,
   )
@@ -217,6 +222,13 @@ adminRoutes.get("/codes", async (c) => {
 adminRoutes.post("/codes/:id/revoke", async (c) => {
   const id = Number(c.req.param("id"));
   if (!Number.isInteger(id)) return c.json({ error: "Identificador inválido" }, 400);
+
+  const code = await c.env.DB.prepare("SELECT phase FROM access_codes WHERE id = ?")
+    .bind(id).first<{ phase: "pretest" | "postest" }>();
+  if (!code) return c.json({ error: "El código no existe" }, 404);
+  if (code.phase === "pretest") {
+    return c.json({ error: "Los códigos de pretest son históricos y están protegidos. Administra el acceso de postest." }, 403);
+  }
 
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE access_codes SET status = 'revoked' WHERE id = ?").bind(id),
@@ -239,6 +251,13 @@ adminRoutes.post("/codes/:id/revoke", async (c) => {
 adminRoutes.post("/codes/:id/reset", async (c) => {
   const id = Number(c.req.param("id"));
   if (!Number.isInteger(id)) return c.json({ error: "Identificador inválido" }, 400);
+
+  const code = await c.env.DB.prepare("SELECT phase FROM access_codes WHERE id = ?")
+    .bind(id).first<{ phase: "pretest" | "postest" }>();
+  if (!code) return c.json({ error: "El código no existe" }, 404);
+  if (code.phase === "pretest") {
+    return c.json({ error: "El pretest está protegido: sus respuestas y resultados no se pueden reiniciar." }, 403);
+  }
 
   const attempt = await c.env.DB.prepare(
     "SELECT id FROM attempts WHERE access_code_id = ?",
@@ -274,7 +293,7 @@ adminRoutes.post("/codes/:id/reset", async (c) => {
  */
 adminRoutes.get("/live", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT ac.code, ac.label, ac.phase,
+    `SELECT COALESCE(original.code, ac.code) AS code, ac.label, ac.phase,
              a.id AS attempt_id, a.status, a.started_at, a.last_seen_at, a.elapsed_ms,
              (SELECT COUNT(*) FROM answers ans
                JOIN questions q ON q.id = ans.question_id
@@ -283,9 +302,11 @@ adminRoutes.get("/live", async (c) => {
                JOIN questions q ON q.id = ans.question_id
               WHERE ans.attempt_id = a.id AND q.is_scored = 1
               ORDER BY ans.answered_at DESC LIMIT 1) AS last_question_number
-       FROM attempts a
-       JOIN access_codes ac ON ac.id = a.access_code_id
-      WHERE a.status = 'in_progress'
+        FROM attempts a
+        JOIN access_codes ac ON ac.id = a.access_code_id
+        LEFT JOIN postest_code_links link ON link.postest_access_code_id = ac.id
+        LEFT JOIN access_codes original ON original.id = link.pretest_access_code_id
+       WHERE a.status = 'in_progress' AND ac.phase = 'postest'
       ORDER BY a.last_seen_at DESC`,
   ).all<LiveAttemptRow>();
 
@@ -301,14 +322,16 @@ adminRoutes.get("/results", async (c) => {
   const filtroFase = phase === "pretest" || phase === "postest" ? phase : null;
 
   const { results } = await c.env.DB.prepare(
-    `SELECT ac.code, ac.label, ac.phase,
+    `SELECT COALESCE(original.code, ac.code) AS code, ac.label, ac.phase,
             a.id AS attempt_id, a.status, a.started_at, a.completed_at,
             a.elapsed_ms, a.score_total, a.score_causal, a.score_predictive,
             (SELECT COUNT(*) FROM answers ans
               JOIN questions q ON q.id = ans.question_id
              WHERE ans.attempt_id = a.id AND q.is_scored = 1) AS answered
-       FROM attempts a
-       JOIN access_codes ac ON ac.id = a.access_code_id
+        FROM attempts a
+        JOIN access_codes ac ON ac.id = a.access_code_id
+        LEFT JOIN postest_code_links link ON link.postest_access_code_id = ac.id
+        LEFT JOIN access_codes original ON original.id = link.pretest_access_code_id
       WHERE a.status = 'completed' AND (?1 IS NULL OR ac.phase = ?1)
       ORDER BY a.completed_at DESC`,
   )
@@ -362,11 +385,13 @@ adminRoutes.get("/analytics", async (c) => {
   const instrumentVersion = getInstrumentVersion(phase);
   const [attemptRows, answerRows] = await Promise.all([
     c.env.DB.prepare(
-      `SELECT a.id AS attempt_id, ac.code, ac.label,
+      `SELECT a.id AS attempt_id, COALESCE(original.code, ac.code) AS code, ac.label,
               a.score_total, a.score_causal, a.score_predictive,
               a.elapsed_ms, a.started_at, a.completed_at
-         FROM attempts a
-         JOIN access_codes ac ON ac.id = a.access_code_id
+          FROM attempts a
+          JOIN access_codes ac ON ac.id = a.access_code_id
+          LEFT JOIN postest_code_links link ON link.postest_access_code_id = ac.id
+          LEFT JOIN access_codes original ON original.id = link.pretest_access_code_id
          WHERE a.status = 'completed' AND ac.phase = ? AND a.instrument_version = ?
          ORDER BY a.completed_at DESC`,
     )

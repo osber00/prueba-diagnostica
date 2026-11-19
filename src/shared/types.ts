@@ -44,6 +44,7 @@ export interface HealthResponse {
   database: "conectada" | "sin migrar" | "no disponible";
   items: number;
   instruments: Record<Phase, { version: number; items: number }>;
+  studentPhase: Phase;
   version: string;
 }
 
